@@ -1,5 +1,5 @@
 theory Euler
-  imports "ITree_VCG.ITree_VCG"   "HOL-Analysis.Analysis"
+  imports "ITree_VCG.ITree_VCG"   "HOL-Analysis.Analysis" "HOL.Topological_Spaces"
 begin
 
 instantiation rat :: default
@@ -110,13 +110,34 @@ term "\<lambda> a1 b1 c1. H{a1}b1{c1}"
 
 (*\<and> (\<exists>c.(f(c) = 0 \<and> lower < c \<and> c < upper))   An invariant?*)
 
+
 lemma helpful_fact:
   fixes f :: "real \<Rightarrow> real"
-  assumes a_less_than_b: "(\<alpha>::real) < (\<beta>::real)"
-  assumes opposite_signs: "f(\<alpha>)*f(\<beta>)<0"  
+  assumes a_less_than_b: "\<alpha> < \<beta>"
+  assumes opposite_signs: "f(\<alpha>)*f(\<beta>) < 0"  
   assumes continuous_f: "continuous_on {\<alpha>..\<beta>} f"
   shows "\<exists> \<gamma>. (f(\<gamma>) = 0 \<and> \<alpha> < \<gamma> \<and> \<gamma> < \<beta>)"
-  oops
+proof -
+  have "f(\<alpha>) \<noteq> 0" and "f(\<beta>) \<noteq> 0"
+    using opposite_signs by (auto simp: mult_less_0_iff)
+  hence cases: "(f(\<alpha>) < 0 \<and> f(\<beta>) > 0) \<or> (f(\<alpha>) > 0 \<and> f(\<beta>) < 0)"
+    using opposite_signs by (auto simp: mult_less_0_iff)
+  have  "\<exists> \<gamma>. \<gamma> \<in> {\<alpha>..\<beta>} \<and> f(\<gamma>) = 0"
+  proof(cases "f(\<alpha>) < 0 \<and> f(\<beta>) > 0")
+    show "f \<alpha> < 0 \<and> 0 < f \<beta> \<Longrightarrow> \<exists>\<gamma>. \<gamma> \<in> {\<alpha>..\<beta>} \<and> f \<gamma> = 0"
+      by (metis IVT' a_less_than_b atLeastAtMost_iff continuous_f less_le_not_le) 
+  next 
+    assume "\<not> (f \<alpha> < 0 \<and> 0 < f \<beta>)"
+    then have "(f \<beta> < 0 \<and> 0 < f \<alpha>)"
+      using cases by linarith
+    then have "\<exists> \<gamma>. \<gamma> \<in> {\<alpha>..\<beta>} \<and> f \<gamma> = 0"
+      using IVT'[OF continuous_f, of 0 \<beta> \<alpha>] a_less_than_b by auto
+     (*Chat gpt proof*)
+    oops
+qed
+
+
+
 
 
 
