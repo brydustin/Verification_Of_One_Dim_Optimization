@@ -1,5 +1,5 @@
 theory Euler
-  imports "ITree_VCG.ITree_VCG"   "HOL-Analysis.Analysis" "HOL.Topological_Spaces"
+  imports "ITree_VCG.ITree_VCG"   "HOL-Analysis.Analysis" "HOL.Topological_Spaces" "HOL-Library.Log_Nat"
 begin
 
 instantiation rat :: default
@@ -7,6 +7,8 @@ begin
 definition "default_rat = (0::rat)"
 instance ..
 end
+
+
 
 
 
@@ -51,13 +53,15 @@ procedure euler "(f :: rat \<Rightarrow> rat, x\<^sub>0 :: rat, t :: rat, steps 
 
 execute "euler (\<lambda> x. - 0.1 * x, 0.1, 1, 10)"
 
-lemma "real_of_rat(9581 / 1000) = 9.581" 
-  oops
-
-
-
-lemma "abs((2::int) -3) =1"
+(*Log base 2 of 2 is 1*)
+lemma  "log 2 2 = 1"
   by simp
+
+
+lemma "sgn(-3 ::real) = -1"
+  by simp
+
+
 
 (*Some documentation*)
 (*https://github.com/cran/cmna/blob/master/R/bisection.R*)
@@ -67,18 +71,43 @@ lemma "abs((2::int) -3) =1"
 (*Note:  Whenever possible I try to emulate the style of the R source code*)
 
 
-procedure bisection "(f :: real \<Rightarrow> real, a :: real, b :: real, tol :: real, m :: nat)" over state 
+(*Some possible invariants:
+
+(fa * fb \<le> 0)
+                                     \<and> ((lower \<le> xmid) \<and> (xmid \<le> upper))                                    
+                                     \<and> (abs(upper - lower) / 2^iter \<le> tol)
+                                    \<and> (iter \<le> log 2 ((upper - lower) / tol))
+
+    
+sgn(fa) = sgn(f lower) \<and> sgn(fb) = sgn(f upper )  (*I don't think this is strictly an invariant because f(xmid) COULD be exactly 0.*)
+\<exists> \<gamma>. (f(\<gamma>) = 0 \<and> lower < \<gamma> \<and> \<gamma> < upper)    (this states that the interval always contains a root)
+
+
+If we replace fa * fb \<le> 0 with f(lower)*f(upper) \<le> 0 this doesn't seem to work as well!
+
+*)
+
+(*We shall experiment with differen loop invariants to see if it makes the verification more clean*)
+
+(*procedure bisection "(f :: real \<Rightarrow> real, a :: real, b :: real, tol :: real, m :: nat)" over state *)
+procedure bisection "(f :: real \<Rightarrow> real, a :: real, b :: real, tol :: real)" over state
  = "iter := 0;
     fa:= f(a);
     fb:= f(b);
     lower:= a;
     upper:= b;
     xmid:= (lower + upper)/2;
+    ymid:= f(xmid);
     
      
-    while (abs((upper - lower)) > tol) inv (fa * fb \<le> 0) \<and> (lower < xmid \<and> xmid < upper)
+    while (abs((upper - lower)) > tol) \<and> ymid \<noteq> 0  
 
-    
+
+                                    inv (fa * fb \<le> 0)
+                                     \<and> ((lower \<le> xmid) \<and> (xmid \<le> upper))                                    
+                                    \<and> (\<exists> \<gamma>. (f(\<gamma>) = 0 \<and> lower < \<gamma> \<and> \<gamma> < upper))
+
+
     do
       iter:= iter + 1;
       
@@ -89,29 +118,14 @@ procedure bisection "(f :: real \<Rightarrow> real, a :: real, b :: real, tol ::
     od;
     root:= (lower+upper)/2
 "
-(*if (iter > m) then Stop else xmid: .... fi*) (*I'm not sure how to handle this in the lemmas, so I'm removing for now!*)
-
-(*Might want an invariant like inv (abs(xmid - c) \<le> (upper-lower)/(2^iter)) but it's unclear what c would mean here!  
-  Can I just plug it in as:
-inv \<exists>  c. (f(c) = 0 \<and> a < c \<and> c < b \<and>  (abs(xmid - c) \<le> (upper-lower)/(2^iter))) ?*)
 
 
-(*Clearly above c_1 = (a+b)/2 *)
+execute "bisection (\<lambda> x. (x*x*x) -2*x*x - 159 , 0, 10, 0.0001)"  (*This has a root of 6.17 as desired!*)
 
-execute "bisection (\<lambda> x. (x*x*x) -2*x*x - 159 , 0, 10, 0.0001, 100)"  (*This has a root of 6.17 as desired!*)
-
-value "real_of_int(32::nat)"  (*Converts ints and nats to reals*)
-
-value "abs((3::real) - 2)"
-
-term bisection
-
-term "\<lambda> a1 b1 c1. H{a1}b1{c1}"
-
-(*\<and> (\<exists>c.(f(c) = 0 \<and> lower < c \<and> c < upper))   An invariant?*)
+execute "bisection (\<lambda> x.  (x*x), -1, 1, 0.0001)"  (*This has a root of 6.17 as desired!*)
 
 
-lemma helpful_fact:
+lemma Bolzanos_IVT:
   fixes f :: "real \<Rightarrow> real"
   assumes a_less_than_b: "\<alpha> < \<beta>"
   assumes opposite_signs: "f(\<alpha>)*f(\<beta>) < 0"  
@@ -130,10 +144,14 @@ proof -
     assume "\<not> (f \<alpha> < 0 \<and> 0 < f \<beta>)"
     then have "(f \<beta> < 0 \<and> 0 < f \<alpha>)"
       using cases by linarith
-    then have "\<exists> \<gamma>. \<gamma> \<in> {\<alpha>..\<beta>} \<and> f \<gamma> = 0"
-      using IVT'[OF continuous_f, of 0 \<beta> \<alpha>] a_less_than_b by auto
-     (*Chat gpt proof*)
-    oops
+    from IVT2'[where f = "f", where b="\<beta>", where a = "\<alpha>", where y=0]
+    obtain \<gamma> where "\<gamma> \<in> {\<alpha>..\<beta>}" and "f \<gamma> = 0"
+      using \<open>f \<beta> < 0 \<and> 0 < f \<alpha>\<close> \<open>f \<beta> < 0 \<and> 0 < f \<alpha>\<close> a_less_than_b continuous_f by auto
+    then show ?thesis
+      by blast
+  qed
+  then show ?thesis
+    by (smt (verit, best) \<open>f \<alpha> \<noteq> 0\<close> \<open>f \<beta> \<noteq> 0\<close> atLeastAtMost_iff)
 qed
 
 
@@ -141,79 +159,31 @@ qed
 
 
 
-(*
+
+
+
+
 
 lemma bisection_error_bound:   
   assumes a_less_than_b: "(a::real) < (b::real)"
   assumes continuous_f: "continuous_on {a..b} f"
   assumes opposite_signs: "f(a)*f(b)<0"
   assumes postive_tolerance: "tol > 0"
-  shows "H{True} bisection(f,a,b,tol,m) {\<exists> (c::real). (f(c) = 0 \<and> a < c \<and> c < b \<and>  (abs(xmid - c) \<le> (b-a)/(2^iter)))  }"
+  shows "H{True} bisection(f,a,b,tol) {\<exists> (c::real). (f(c) = 0 \<and> a < c \<and> c < b \<and>  (abs(xmid - c) \<le> (b-a)/(2^iter)))}"
   unfolding continuous_on_def
 proof(vcg)
-
-  oops
-
-*)
+  show "\<And>lower upper fa xmid ymid \<gamma>.
+       0 < fa * f ((lower + upper) / 2) \<Longrightarrow>
+       f lower * f upper \<le> 0 \<Longrightarrow>
+       lower \<le> xmid \<Longrightarrow> xmid \<le> upper \<Longrightarrow> tol < upper - lower \<Longrightarrow> ymid \<noteq> 0 \<Longrightarrow> f \<gamma> = 0 \<Longrightarrow> lower < \<gamma> \<Longrightarrow> \<gamma> < upper \<Longrightarrow> f ((lower + upper) / 2) * f upper \<le> 0"
   
-(*
-
-  show "\<And>lower upper fa fb c.
-       0 < fa * real_of_int (f ((lower + upper) / 2)) \<Longrightarrow>
-       0 \<le> fa * fb \<Longrightarrow> tol < upper - lower \<Longrightarrow> f c = 0 \<Longrightarrow> lower < c \<Longrightarrow> c < upper \<Longrightarrow> 0 \<le> real_of_int (f ((lower + upper) / 2)) * fb"
-    by (smt (verit, del_insts) zero_le_mult_iff zero_less_mult_iff)
-  show "\<And>lower upper fa fb c.
-       0 < fa * real_of_int (f ((lower + upper) / 2)) \<Longrightarrow>
-       0 \<le> fa * fb \<Longrightarrow> tol < upper - lower \<Longrightarrow> f c = 0 \<Longrightarrow> lower < c \<Longrightarrow> c < upper \<Longrightarrow> \<exists>c. f c = 0 \<and> lower + upper < c * 2 \<and> c < upper"
-    sorry
-  show "\<And>lower upper iter fa fb xmid c.
-       \<not> tol < upper - lower \<Longrightarrow>
-       0 \<le> fa * fb \<Longrightarrow> f c = 0 \<Longrightarrow> lower < c \<Longrightarrow> c < upper \<Longrightarrow> \<exists>c. f c = 0 \<and> real_of_int a < c \<and> c < real_of_int b \<and> \<bar>xmid - c\<bar> \<le> (real_of_int b - real_of_int a) / 2 ^ iter"
-
-
-*)
+  
 
 
 
 
-(*
-
-(*   When we ONLY used (fa * fb \<ge> 0) for the invariance *)
-  show "\<And>lower upper fa fb. 0 < fa * real_of_int (f ((lower + upper) / 2)) \<Longrightarrow> 0 \<le> fa * fb \<Longrightarrow> tol < \<bar>upper - lower\<bar> \<Longrightarrow> 0 \<le> real_of_int (f ((lower + upper) / 2)) * fb"
-    by (smt (verit) zero_le_mult_iff zero_less_mult_iff)
-  show "\<And>lower upper fa fb. \<not> 0 < fa * real_of_int (f ((lower + upper) / 2)) \<Longrightarrow> 0 \<le> fa * fb \<Longrightarrow> tol < \<bar>upper - lower\<bar> \<Longrightarrow> f ((lower + upper) / 2) \<noteq> 0 \<Longrightarrow> fa = 0"
-  proof - 
-    fix lower upper fa fb
-    assume new_value_not_op_sign: "\<not> 0 < fa * real_of_int (f ((lower + upper) / 2))"
-    assume opposite_signs: "0 \<le> fa * fb"
-    assume not_converged: "tol < \<bar>upper - lower\<bar>"
-    assume mid_not_root: "f ((lower + upper) / 2) \<noteq> 0"
-    (*show "fa = 0"*)
-
-    have new_value_not_op_sign2: "0 \<ge> fa * real_of_int (f ((lower + upper) / 2))"
-      using new_value_not_op_sign by linarith
-
-    show "fa = 0"
-      sorry
 
 
-
-
-    
-  qed
-  show "\<And>xmid. xmid * 2 = real_of_int a + real_of_int b \<Longrightarrow> 0 \<le> real_of_int (f (real_of_int a)) * real_of_int (f (real_of_int b))"
-  proof - 
-    fix xmid
-    assume xmid_def: "xmid * 2 = real_of_int a + real_of_int b"
-    show "0 \<le> real_of_int (f (real_of_int a)) * real_of_int (f (real_of_int b))"
-      sorry
-  qed
-  then show "\<And>lower upper iter fa fb xmid.
-       \<not> tol < \<bar>upper - lower\<bar> \<Longrightarrow> 0 \<le> fa * fb \<Longrightarrow> \<exists>c. f c = 0 \<and> real_of_int a < c \<and> c < real_of_int b \<and> \<bar>xmid - c\<bar> \<le> (real_of_int b - real_of_int a) / 2 ^ iter"
-    by (metis divide_eq_eq_numeral1(1) not_le of_int_less_0_iff of_int_mult opposite_signs zero_neq_numeral)
-qed
-
-*)
 
 
 
