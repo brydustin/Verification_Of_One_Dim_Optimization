@@ -71,25 +71,35 @@ lemma "sgn(-3 ::real) = -1"
 (*Note:  Whenever possible I try to emulate the style of the R source code*)
 
 
-(*Some possible invariants:
-
-(fa * fb \<le> 0)
-                                     \<and> ((lower \<le> xmid) \<and> (xmid \<le> upper))                                    
-                                     \<and> (abs(upper - lower) / 2^iter \<le> tol)
-                                    \<and> (iter \<le> log 2 ((upper - lower) / tol))
-
-    
-sgn(fa) = sgn(f lower) \<and> sgn(fb) = sgn(f upper )  (*I don't think this is strictly an invariant because f(xmid) COULD be exactly 0.*)
-\<exists> \<gamma>. (f(\<gamma>) = 0 \<and> lower < \<gamma> \<and> \<gamma> < upper)    (this states that the interval always contains a root)
 
 
-If we replace fa * fb \<le> 0 with f(lower)*f(upper) \<le> 0 this doesn't seem to work as well!
 
+
+(*I removed the following: 
+                                    \<and> (iter = 0) \<or> (iter > 0 \<and> (upper - lower) = (b - a) / 2^iter)
+
+and replaced it with:  \<and> ((upper - lower) \<le> (b - a) / 2^iter)
+
+They seem very similar but give different goals....
+
+Going to experiment with this.... \<and> ((lower = xmid \<and> fa = ymid) \<or> (upper = xmid \<and> fb = ymid))
+
+
+Isn't
+((iter = 0 \<and> fa \<noteq> 0 \<and> fb \<noteq> 0) \<or> (iter > 0)) just equivalent to f(a) \<noteq> 0  and f(b) \<noteq> 0 ?!
+Why not use the latter as an invariant... it's more clear. Or even better.... (f(a)*f(b) <  0).... or even better just remove it all together because that's an assumption!
+
+
+
+
+Try without: \<and> (\<exists> \<gamma>. (f(\<gamma>) = 0 \<and> lower \<le> \<gamma> \<and> \<gamma> \<le> upper)) and instead try to derive it!
+Likewise with "                                     \<and> ((lower \<le> xmid) \<and> (xmid \<le> upper)) "
+
+I wonder if it is better to assume fewer invariants if you can always dervie the others or assume more invariants (assuming they can be proven from the more basic list!?)
 *)
 
-(*We shall experiment with differen loop invariants to see if it makes the verification more clean*)
 
-(*procedure bisection "(f :: real \<Rightarrow> real, a :: real, b :: real, tol :: real, m :: nat)" over state *)
+
 procedure bisection "(f :: real \<Rightarrow> real, a :: real, b :: real, tol :: real)" over state
  = "iter := 0;
     fa:= f(a);
@@ -100,24 +110,33 @@ procedure bisection "(f :: real \<Rightarrow> real, a :: real, b :: real, tol ::
     ymid:= f(xmid);
     
      
-    while (abs((upper - lower)) > tol) \<and> ymid \<noteq> 0  
+    while (upper - lower > tol) \<and> ymid \<noteq> 0  
 
 
-                                    inv (fa * fb \<le> 0)
-                                     \<and> ((lower \<le> xmid) \<and> (xmid \<le> upper))                                    
-                                    \<and> (\<exists> \<gamma>. (f(\<gamma>) = 0 \<and> lower < \<gamma> \<and> \<gamma> < upper))
-
-
+                                    inv (fa * fb \<le> 0)   
+                                    \<and> ((lower \<le> xmid) \<and> (xmid \<le> upper))
+                                    \<and> (\<exists> \<gamma>. (f(\<gamma>) = 0 \<and> lower \<le> \<gamma> \<and> \<gamma> \<le> upper))          
+                                    \<and> xmid = (lower + upper)/2
+                                    \<and> ymid = f(xmid)
+                                    \<and> fa = f(lower)
+                                    \<and> fb = f(upper)
+                                    \<and> ((a \<le> lower) \<and> (upper \<le> b))
+                                    \<and> (lower < upper)
+                                    \<and> ((upper - lower) = (b - a) / 2^iter)
+                                   
+                                    
     do
       iter:= iter + 1;
       
-       xmid:= (lower + upper)/2;      
-       ymid:= f(xmid)
+      xmid:= (lower + upper)/2;      
+      ymid:= f(xmid)
       ;
       if (fa*ymid >0) then (lower:= xmid; fa:= ymid) else (upper:= xmid; fb:= ymid) fi
     od;
     root:= (lower+upper)/2
 "
+
+value "(2::nat)^(2::nat)"
 
 
 execute "bisection (\<lambda> x. (x*x*x) -2*x*x - 159 , 0, 10, 0.0001)"  (*This has a root of 6.17 as desired!*)
@@ -169,15 +188,57 @@ lemma bisection_error_bound:
   assumes continuous_f: "continuous_on {a..b} f"
   assumes opposite_signs: "f(a)*f(b)<0"
   assumes postive_tolerance: "tol > 0"
-  shows "H{True} bisection(f,a,b,tol) {\<exists> (c::real). (f(c) = 0 \<and> a < c \<and> c < b \<and>  (abs(xmid - c) \<le> (b-a)/(2^iter)))}"
+  shows "H{True} bisection(f,a,b,tol) {\<exists> (c::real). (f(c) = 0 \<and> a < c \<and> c < b \<and>  (abs(c - xmid) \<le> (b - a)/(2^(iter+1))))}"
   unfolding continuous_on_def
 proof(vcg)
-  show "\<And>lower upper fa xmid ymid \<gamma>.
-       0 < fa * f ((lower + upper) / 2) \<Longrightarrow>
-       f lower * f upper \<le> 0 \<Longrightarrow>
-       lower \<le> xmid \<Longrightarrow> xmid \<le> upper \<Longrightarrow> tol < upper - lower \<Longrightarrow> ymid \<noteq> 0 \<Longrightarrow> f \<gamma> = 0 \<Longrightarrow> lower < \<gamma> \<Longrightarrow> \<gamma> < upper \<Longrightarrow> f ((lower + upper) / 2) * f upper \<le> 0"
-  
-  
+ 
+
+
+
+
+
+
+    
+ 
+
+
+
+
+
+
+
+
+qed
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -253,9 +314,6 @@ execute "newton (\<lambda> x.(x^3 - 2 * x^2 - 159 * x - 540) , \<lambda> x. (3 *
 
 
 execute "newton (\<lambda> x.(x^3) , \<lambda> x. (3*x^2), 1, 0.001, 100)"
-
-
-
 
 
 (*I would like to work on newton method and gradient
