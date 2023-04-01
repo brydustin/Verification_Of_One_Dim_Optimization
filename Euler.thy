@@ -99,24 +99,23 @@ I wonder if it is better to assume fewer invariants if you can always dervie the
 *)
 
 
-
 procedure bisection "(f :: real \<Rightarrow> real, a :: real, b :: real, tol :: real)" over state
  = "iter := 0;
     fa:= f(a);
     fb:= f(b);
     lower:= a;
     upper:= b;
-    xmid:= (lower + upper)/2;
+    xmid:= lower;
     ymid:= f(xmid);
     
      
     while (upper - lower > tol) \<and> ymid \<noteq> 0  
 
 
-                                    inv (fa * fb \<le> 0)   
-                                    \<and> ((lower \<le> xmid) \<and> (xmid \<le> upper))
-                                    \<and> (\<exists> \<gamma>. (f(\<gamma>) = 0 \<and> lower \<le> \<gamma> \<and> \<gamma> \<le> upper))          
-                                    \<and> xmid = (lower + upper)/2
+                                    inv (fa * fb \<le> 0)
+                                    \<and> ((lower = xmid) \<or> (xmid = upper))
+                                    \<and> (\<exists> \<gamma>. (f(\<gamma>) = 0 \<and> lower \<le> \<gamma> \<and> \<gamma> \<le> upper))
+                                    \<and> ymid = f(xmid)
                                     \<and> fa = f(lower)
                                     \<and> fb = f(upper)
                                     \<and> ((a \<le> lower) \<and> (upper \<le> b))
@@ -190,32 +189,48 @@ lemma bisection_error_bound:
   shows "H{True} bisection(f,a,b,tol) {\<exists> (c::real). (f(c) = 0 \<and> a < c \<and> c < b \<and>  (abs(c - xmid) \<le> (b - a)/(2^(iter))))}"
   unfolding continuous_on_def
 proof(vcg)
-  show "\<And>lower upper iter xmid ymid \<gamma>.
-       tol < (b - a) / 2 ^ iter \<Longrightarrow>
-       upper - lower = (b - a) / 2 ^ iter \<Longrightarrow>
-       lower < upper \<Longrightarrow> upper \<le> b \<Longrightarrow> a \<le> lower \<Longrightarrow> xmid * 2 = lower + upper \<Longrightarrow> f lower * f upper \<le> 0 \<Longrightarrow> ymid \<noteq> 0 \<Longrightarrow> lower \<le> \<gamma> \<Longrightarrow> f \<gamma> = 0 \<Longrightarrow> \<gamma> \<le> upper \<Longrightarrow> False"
-    sorry
+  fix upper xmid iter
+  assume "0 < f xmid * f ((xmid + upper) / 2)" and "f xmid * f upper \<le> 0"
+  then show "f ((xmid + upper) / 2) * f upper \<le> 0"
+    by (smt (verit, ccfv_threshold) mult_le_0_iff)
+next
+  fix upper xmid :: real
+  assume xmid_below_upper: "xmid < upper"
+  assume lower_signs_same: "0 < f xmid * f ((xmid + upper) / 2)"
+  assume xmid_above_a: "a \<le> xmid"
+  assume upper_below_b: "upper \<le> b"
+  assume signs_different: "f xmid * f upper \<le> 0"
+  assume f_xmid_nonzero: "f xmid \<noteq> 0"
 
+  have "{(xmid + upper) / 2..upper} \<subseteq> {a..b}"
+    using upper_below_b xmid_above_a by auto
+  then have f_continuous: "continuous_on {(xmid + upper) / 2..upper} f"
+    by (meson continuous_f continuous_on_subset)
 
-  show "\<And>xmid. xmid * 2 = a + b \<Longrightarrow> f a * f b \<le> 0"
+  have "f xmid * f upper < 0 \<or> f upper = 0"
+    by (simp add: f_xmid_nonzero order_less_le signs_different)
+  then have "f ((xmid + upper) / 2) * f upper < 0 \<or> f upper = 0"
+    by (smt (verit) lower_signs_same mult_eq_0_iff zero_le_mult_iff)
+  then show "\<exists>\<gamma>. f \<gamma> = 0 \<and> xmid + upper \<le> \<gamma> * 2 \<and> \<gamma> \<le> upper"
+    by (smt (z3) Bolzanos_IVT f_continuous field_sum_of_halves xmid_below_upper)
+next
+  fix upper iter xmid
+  assume "upper - xmid = (b - a) / 2 ^ iter"
+  then have "(upper - xmid) / 2 = (b - a) / (2 * 2 ^ iter)"
+    by auto
+  then show "upper - (xmid + upper) / 2 = (b - a) / (2 * 2 ^ iter)"
+    by (smt (z3) field_sum_of_halves)
+next
+  show "f a * f b \<le> 0"
     using opposite_signs by linarith
 
-  show "\<And>xmid. xmid * 2 = a + b \<Longrightarrow> a \<le> xmid"
-    using a_less_than_b by linarith
-
-  show "\<And>xmid. xmid * 2 = a + b \<Longrightarrow> xmid \<le> b"
-    using a_less_than_b by linarith
-
-  show "\<And>xmid. xmid * 2 = a + b \<Longrightarrow> \<exists>\<gamma>. f \<gamma> = 0 \<and> a \<le> \<gamma> \<and> \<gamma> \<le> b"
+  show "\<exists>\<gamma>. f \<gamma> = 0 \<and> a \<le> \<gamma> \<and> \<gamma> \<le> b"
     using Bolzanos_IVT a_less_than_b continuous_f opposite_signs by fastforce
 
-  show "\<And>xmid. xmid * 2 = a + b \<Longrightarrow> a < b"
+  show "a < b"
     by (simp add: a_less_than_b)
 
-
-
-
-
+(*
   show "\<And>lower upper iter xmid \<gamma>.
        f lower * f upper \<le> 0 \<Longrightarrow>
        xmid * 2 = lower + upper \<Longrightarrow>
@@ -234,14 +249,14 @@ proof(vcg)
        lower \<le> \<gamma> \<Longrightarrow>
        \<gamma> \<le> upper \<Longrightarrow> a \<le> lower \<Longrightarrow> upper \<le> b \<Longrightarrow> lower < upper \<Longrightarrow> upper - lower = (b - a) / 2 ^ iter \<Longrightarrow> \<exists>c. f c = 0 \<and> a < c \<and> c < b \<and> \<bar>c - xmid\<bar> \<le> (b - a) / 2 ^ iter"
     by (smt (verit, best) mult_eq_0_iff opposite_signs)
-
+*)
 
 
 
 
 qed
-
-
+  
+  
 
 
 
