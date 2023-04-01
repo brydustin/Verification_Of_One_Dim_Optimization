@@ -117,7 +117,6 @@ procedure bisection "(f :: real \<Rightarrow> real, a :: real, b :: real, tol ::
                                     \<and> ((lower \<le> xmid) \<and> (xmid \<le> upper))
                                     \<and> (\<exists> \<gamma>. (f(\<gamma>) = 0 \<and> lower \<le> \<gamma> \<and> \<gamma> \<le> upper))          
                                     \<and> xmid = (lower + upper)/2
-                                    \<and> ymid = f(xmid)
                                     \<and> fa = f(lower)
                                     \<and> fb = f(upper)
                                     \<and> ((a \<le> lower) \<and> (upper \<le> b))
@@ -188,11 +187,59 @@ lemma bisection_error_bound:
   assumes continuous_f: "continuous_on {a..b} f"
   assumes opposite_signs: "f(a)*f(b)<0"
   assumes postive_tolerance: "tol > 0"
-  shows "H{True} bisection(f,a,b,tol) {\<exists> (c::real). (f(c) = 0 \<and> a < c \<and> c < b \<and>  (abs(c - xmid) \<le> (b - a)/(2^(iter+1))))}"
+  shows "H{True} bisection(f,a,b,tol) {\<exists> (c::real). (f(c) = 0 \<and> a < c \<and> c < b \<and>  (abs(c - xmid) \<le> (b - a)/(2^(iter))))}"
   unfolding continuous_on_def
 proof(vcg)
- 
+  show "\<And>lower upper iter xmid ymid \<gamma>.
+       tol < (b - a) / 2 ^ iter \<Longrightarrow>
+       upper - lower = (b - a) / 2 ^ iter \<Longrightarrow>
+       lower < upper \<Longrightarrow> upper \<le> b \<Longrightarrow> a \<le> lower \<Longrightarrow> xmid * 2 = lower + upper \<Longrightarrow> f lower * f upper \<le> 0 \<Longrightarrow> ymid \<noteq> 0 \<Longrightarrow> lower \<le> \<gamma> \<Longrightarrow> f \<gamma> = 0 \<Longrightarrow> \<gamma> \<le> upper \<Longrightarrow> False"
+    sorry
 
+
+  show "\<And>xmid. xmid * 2 = a + b \<Longrightarrow> f a * f b \<le> 0"
+    using opposite_signs by linarith
+
+  show "\<And>xmid. xmid * 2 = a + b \<Longrightarrow> a \<le> xmid"
+    using a_less_than_b by linarith
+
+  show "\<And>xmid. xmid * 2 = a + b \<Longrightarrow> xmid \<le> b"
+    using a_less_than_b by linarith
+
+  show "\<And>xmid. xmid * 2 = a + b \<Longrightarrow> \<exists>\<gamma>. f \<gamma> = 0 \<and> a \<le> \<gamma> \<and> \<gamma> \<le> b"
+    using Bolzanos_IVT a_less_than_b continuous_f opposite_signs by fastforce
+
+  show "\<And>xmid. xmid * 2 = a + b \<Longrightarrow> a < b"
+    by (simp add: a_less_than_b)
+
+
+
+
+
+  show "\<And>lower upper iter xmid \<gamma>.
+       f lower * f upper \<le> 0 \<Longrightarrow>
+       xmid * 2 = lower + upper \<Longrightarrow>
+       f \<gamma> = 0 \<Longrightarrow>
+       lower \<le> \<gamma> \<Longrightarrow>
+       \<gamma> \<le> upper \<Longrightarrow>
+       a \<le> lower \<Longrightarrow>
+       upper \<le> b \<Longrightarrow>
+       lower < upper \<Longrightarrow> upper - lower = (b - a) / 2 ^ iter \<Longrightarrow> \<not> tol < (b - a) / 2 ^ iter \<Longrightarrow> \<exists>c. f c = 0 \<and> a < c \<and> c < b \<and> \<bar>c - xmid\<bar> \<le> (b - a) / 2 ^ iter"
+    by (smt (verit, best) mult_eq_0_iff opposite_signs)
+
+  show "\<And>lower upper iter xmid \<gamma>.
+       f lower * f upper \<le> 0 \<Longrightarrow>
+       xmid * 2 = lower + upper \<Longrightarrow>
+       f \<gamma> = 0 \<Longrightarrow>
+       lower \<le> \<gamma> \<Longrightarrow>
+       \<gamma> \<le> upper \<Longrightarrow> a \<le> lower \<Longrightarrow> upper \<le> b \<Longrightarrow> lower < upper \<Longrightarrow> upper - lower = (b - a) / 2 ^ iter \<Longrightarrow> \<exists>c. f c = 0 \<and> a < c \<and> c < b \<and> \<bar>c - xmid\<bar> \<le> (b - a) / 2 ^ iter"
+    by (smt (verit, best) mult_eq_0_iff opposite_signs)
+
+
+
+
+
+qed
 
 
 
