@@ -74,14 +74,8 @@ lemma "sgn(-3 ::real) = -1"
 (*Note:  Whenever possible I try to emulate the style of the R source code*)
 
 
-(*
-Removing this invariant makes things more simple!
- \<and> (\<exists> \<gamma>. (f(\<gamma>) = 0 \<and> lower \<le> \<gamma> \<and> \<gamma> \<le> upper))
 
 
-Notably, it does not appear the original version terminates in the special even that ymid = 0 !*)
-(*In the event that we do find ymid = 0, is our root even the preimage of this ymid? 
-It does not appear so!*)
 
 
 procedure bisection "(f :: real \<Rightarrow> real, a :: real, b :: real, tol :: real)" over state
@@ -96,18 +90,17 @@ procedure bisection "(f :: real \<Rightarrow> real, a :: real, b :: real, tol ::
      
     while (upper - lower > tol) \<and> ymid \<noteq> 0  
 
-
-
-                                    inv (fa * fb \<le> 0)
+    inv (fa * fb \<le> 0) 
                                     \<and> ((lower = xmid) \<or> (xmid = upper))
-                                    \<and> ymid = f(xmid)
-                                    \<and> fa = f(lower)
-                                    \<and> fb = f(upper)
-                                    \<and> ((a \<le> lower) \<and> (upper \<le> b))
-                                    \<and> fa = f(lower)
-                                    \<and> fb = f(upper)
-                                    \<and> (lower < upper)
+                                    \<and> (ymid = f(xmid))
+                                    \<and> (fa = f(lower))
+                                    \<and> (fb = f(upper))
+                                    \<and> ((a \<le> lower) & (upper \<le> b))
+                                    \<and> (fa = f(lower))
+                                    \<and> (fb = f(upper))
+                                    \<and> ((lower < upper))
                                     \<and> ((upper - lower) = (b - a) / 2^iter)
+
     do
       iter:= iter + 1;
       
@@ -277,6 +270,7 @@ next
         then  have "f(lower) * f(upper) < 0"
           by (meson \<open>f upper \<noteq> 0\<close> a1 less_eq_real_def mult_eq_0_iff)
 
+
         have "{lower..upper} \<subseteq> {a..b}"
           by (simp add: a2 a3)          
         then have f_continuous: "continuous_on {lower..upper} f"
@@ -293,6 +287,46 @@ qed
 
 
  
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
 
 (*Caution:  A terrible rational approximation of phi = (sqrt(5) - 1) / 2  is used below! !*)
 
