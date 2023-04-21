@@ -28,18 +28,21 @@ zstore state =
   iter :: "nat"
   fa :: "real"
   fb :: "real"
+  fx :: "real"
   xmid :: "real"
   ymid :: "real"
-  root :: "real"
-  phi :: "rat"
-  aStar :: "rat"
-  bStar :: "rat"
+  app_root :: "real"
+  phi :: "real"
+  aStar :: "real"
+  bStar :: "real"
   A :: "rat"
   B :: "rat"
   x_min :: "real"
   f_min :: "real"
-  oldx :: "rat"
-  X :: "rat"
+  oldx :: "real"
+  oldfx :: "real"
+  newx :: "real"
+  X :: "real"
   
 
 term "\<lambda> x. 5 - 0.1 * x"
@@ -103,18 +106,17 @@ procedure bisection "(f :: real \<Rightarrow> real, a :: real, b :: real, tol ::
                                     \<and> ((a \<le> lower) \<and> (upper \<le> b))
                                     \<and> fa = f(lower)
                                     \<and> fb = f(upper)
-                                    \<and> ((a \<le> lower) \<and> (upper \<le> b))
                                     \<and> (lower < upper)
                                     \<and> ((upper - lower) = (b - a) / 2^iter)
     do
       iter:= iter + 1;
       
       xmid:= (lower + upper)/2;      
-      ymid:= f(xmid)
-      ;
+      ymid:= f(xmid);
+
       if (fa*ymid >0) then (lower:= xmid; fa:= ymid) else (upper:= xmid; fb:= ymid) fi
     od;
-    root:= (lower+upper)/2
+    app_root:= (lower+upper)/2
 "
 
 value "(2::nat)^(2::nat)"
@@ -161,6 +163,8 @@ qed
 (2) Is it appropriate to have a check for ymid = 0 if this is not the official version for R?
 (3) Supposing it is appropriate to check for ymid = 0, are we correctly returning the root for that special case or merely the nearby "root" defined in the procedure?
 (4) Are there any good lemmas we can state about the output "root".... and is "root" just the same as xmid?*)
+
+
 
 
 
@@ -287,6 +291,7 @@ next
 qed
 
 
+
  
 
 (*Caution:  A terrible rational approximation of phi = (sqrt(5) - 1) / 2  is used below! !*)
@@ -327,19 +332,20 @@ procedure goldensectmin "(f :: real \<Rightarrow> real, a :: real, b :: real, to
     f_min:= f(x_min)"
      
 execute "goldensectmin (\<lambda> x. x^2 - 3 * x + 3 , 0, 5, 0.1, 100)"
-
 *)
 
 (*https://github.com/cran/cmna/blob/master/R/newton.R*)
 
 
-procedure newton "(f :: rat \<Rightarrow> rat, fp :: rat \<Rightarrow> rat, x\<^sub>0 :: rat, tol :: rat, m :: nat)" over state 
+procedure newton "(f :: real \<Rightarrow> real, fp :: real \<Rightarrow> real, x\<^sub>0 :: real, tol :: real, m :: nat)" over state 
   = "iter:= 0;
 
     oldx:= x\<^sub>0;
     X:= oldx + 10*tol;
     
     while (abs(X - oldx) > tol)
+        
+                             
     do
       iter:= iter + 1;
       if (iter > m) then Stop fi;
@@ -361,6 +367,30 @@ is there a vector equivalent to the "abs" function?*)
 
 (* A Deep Dive Into How R Fits a Linear Model: 
 http://madrury.github.io/jekyll/update/statistics/2016/07/20/lm-in-R.html*)
+
+
+procedure secant "(f :: real \<Rightarrow> real, x\<^sub>0 :: real, tol :: real, m :: nat)" over state 
+  = "iter:= 0;
+
+    oldx:= x\<^sub>0;
+    oldfx := f(x\<^sub>0);
+    X:= oldx + 10*tol;
+    
+    while (abs(X - oldx) > tol)
+    do
+      iter:= iter + 1;
+      
+      fx:= X;
+      newx := X - fx*((X-oldx)/(fx-oldfx));
+      oldx := X;
+      oldfx:= fx;
+      X:= newx
+    od
+"
+
+
+
+
 
 
 
