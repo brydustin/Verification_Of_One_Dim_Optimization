@@ -1,5 +1,5 @@
 theory Euler
-  imports "ITree_VCG.ITree_VCG"   "HOL-Analysis.Analysis" "HOL.Topological_Spaces" "HOL-Library.Log_Nat"
+  imports "ITree_VCG.ITree_VCG"   "HOL-Analysis.Analysis" "HOL.Topological_Spaces" "HOL-Library.Log_Nat"  "HOL-Number_Theory.Fib" HOL.Orderings
 begin
 
 instantiation rat :: default
@@ -74,11 +74,47 @@ lemma "sgn(-3 ::real) = -1"
 (*Note:  Whenever possible I try to emulate the style of the R source code*)
 
 
-
-
-
-
 procedure bisection "(f :: real \<Rightarrow> real, a :: real, b :: real, tol :: real)" over state
+ = "iter := 0;
+    fa:= f(a);
+    fb:= f(b);
+    lower:= a;
+    upper:= b;
+    xmid:= lower;
+    ymid:= f(xmid);
+    
+     
+    while (upper - lower > tol) 
+
+    inv (fa * fb \<le> 0) 
+                                    \<and> ((lower = xmid) \<or> (xmid = upper))
+                                    \<and> (ymid = f(xmid))
+                                    \<and> (fa = f(lower))
+                                    \<and> (fb = f(upper))
+                                    \<and> ((a \<le> lower) & (upper \<le> b))
+                                    \<and> (fa = f(lower))
+                                    \<and> (fb = f(upper))
+                                    \<and> ((lower < upper))
+                                    \<and> ((upper - lower) = (b - a) / 2^iter)
+
+    do
+      iter:= iter + 1;
+      
+      xmid:= (lower + upper)/2;      
+      ymid:= f(xmid);
+
+      if (fa*ymid >0) then (lower:= xmid; fa:= ymid) else (upper:= xmid; fb:= ymid) fi
+    od;
+    app_root:= (lower+upper)/2
+"
+
+
+
+
+
+
+
+procedure bisection_with_root_check "(f :: real \<Rightarrow> real, a :: real, b :: real, tol :: real)" over state
  = "iter := 0;
     fa:= f(a);
     fb:= f(b);
@@ -160,13 +196,134 @@ qed
 
 
 
-
 lemma bisection_error_bound:   
   assumes a_less_than_b: "(a::real) < (b::real)"
   assumes continuous_f: "continuous_on {a..b} f"
   assumes opposite_signs: "f(a)*f(b)<0"
   assumes postive_tolerance: "tol > 0"
   shows "H{True} bisection(f,a,b,tol) {\<exists> (c::real). (f(c) = 0 \<and> a < c \<and> c < b \<and>  (abs(c - xmid) \<le> (b - a)/(2^(iter))))}"
+  unfolding continuous_on_def
+proof(vcg)
+  show "\<And>upper iter xmid.
+       0 < f xmid * f ((xmid + upper) / 2) \<Longrightarrow>
+       f xmid * f upper \<le> 0 \<Longrightarrow>
+       a \<le> xmid \<Longrightarrow> upper \<le> b \<Longrightarrow> xmid < upper \<Longrightarrow> upper - xmid = (b - a) / 2 ^ iter \<Longrightarrow> tol < (b - a) / 2 ^ iter \<Longrightarrow> f ((xmid + upper) / 2) * f upper \<le> 0"
+    by (smt (verit, del_insts) zero_less_mult_iff)
+next
+  fix upper iter xmid
+  assume "upper - xmid = (b - a) / 2 ^ iter"
+  then have "(upper - xmid) / 2 = (b - a) / (2 * 2 ^ iter)"
+    by auto
+  then show "upper - (xmid + upper) / 2 = (b - a) / (2 * 2 ^ iter)"
+    by (smt (z3) field_sum_of_halves)
+next
+  show "\<And>lower upper iter.
+       0 < f lower * f ((lower + upper) / 2) \<Longrightarrow>
+       f lower * f upper \<le> 0 \<Longrightarrow> a \<le> lower \<Longrightarrow> upper \<le> b \<Longrightarrow> lower < upper \<Longrightarrow> upper - lower = (b - a) / 2 ^ iter \<Longrightarrow> tol < (b - a) / 2 ^ iter \<Longrightarrow> f ((lower + upper) / 2) * f upper \<le> 0"
+    by (smt (verit) zero_less_mult_iff)
+next
+  show "\<And>lower upper iter.
+       0 < f lower * f ((lower + upper) / 2) \<Longrightarrow>
+       f lower * f upper \<le> 0 \<Longrightarrow> a \<le> lower \<Longrightarrow> upper \<le> b \<Longrightarrow> lower < upper \<Longrightarrow> upper - lower = (b - a) / 2 ^ iter \<Longrightarrow> tol < (b - a) / 2 ^ iter \<Longrightarrow> upper - (lower + upper) / 2 = (b - a) / (2 * 2 ^ iter)"
+  proof -
+    fix lower :: "\<real>" and upper :: "\<real>" and iter :: "\<nat>"
+    assume a1: "upper - lower = (b - a) / 2 ^ iter"
+    have f2: "\<forall>r ra. (r::\<real>) + - ra = r - ra"
+      using add_uminus_conv_diff by blast
+    have "\<forall>r ra rb. (r::\<real>) / ra / rb = r / (ra * rb)"
+      using divide_divide_eq_left by blast
+    then show "upper - (lower + upper) / 2 = (b - a) / (2 * 2 ^ iter)"
+      using f2 a1 by (metis (no_types) add_diff_cancel_right' diff_minus_eq_add div_0 mult_2 mult_2_right real_average_minus_second right_minus_eq times_divide_eq_right uminus_add_conv_diff)
+  qed
+next
+  show "f a * f b \<le> 0"
+    using opposite_signs by auto
+next
+  show "a < b"
+    by (simp add: a_less_than_b)
+next
+   fix upper iter xmid
+    assume a1: "f xmid * f upper \<le> 0"
+    assume a2: "a \<le> xmid"
+    assume a3: "upper \<le> b"
+    assume a4: "xmid < upper"
+    assume a5: "upper - xmid = (b - a) / 2 ^ iter"
+    assume a6: "\<not> tol < (b - a) / 2 ^ iter"
+
+    then have "upper - xmid \<le> tol"
+      by (simp add: a5)
+
+    show "\<exists>c. f c = 0 \<and> a < c \<and> c < b \<and> \<bar>c - xmid\<bar> \<le> (b - a) / 2 ^ iter"
+    proof(cases "f(xmid) = 0")
+      show "f xmid = 0 \<Longrightarrow> \<exists>c. f c = 0 \<and> a < c \<and> c < b \<and> \<bar>c - xmid\<bar> \<le> (b - a) / 2 ^ iter"
+        by (smt (verit, ccfv_SIG) a2 a3 a4 a5 mult_eq_0_iff opposite_signs)
+    next
+      assume "f xmid \<noteq> 0"
+      show "\<exists>c. f c = 0 \<and> a < c \<and> c < b \<and> \<bar>c - xmid\<bar> \<le> (b - a) / 2 ^ iter"
+      proof(cases "f  upper = 0")
+        show "f upper = 0 \<Longrightarrow> \<exists>c. f c = 0 \<and> a < c \<and> c < b \<and> \<bar>c - xmid\<bar> \<le> (b - a) / 2 ^ iter"
+          by (smt (verit, del_insts) a2 a3 a4 a5 mult_eq_0_iff opposite_signs)
+      next
+        assume "f upper \<noteq> 0"
+        then have "f(xmid) * f(upper) < 0"
+          using \<open>f xmid \<noteq> 0\<close> a1 mult_eq_0_iff by fastforce
+        have "{xmid..upper} \<subseteq> {a..b}"
+          by (simp add: a2 a3)          
+        then have f_continuous: "continuous_on {xmid..upper} f"
+          by (meson continuous_f continuous_on_subset)
+        then show "\<exists>c. f c = 0 \<and> a < c \<and> c < b \<and> \<bar>c - xmid\<bar> \<le> (b - a) / 2 ^ iter"
+          using Bolzanos_IVT \<open>f xmid * f upper < 0\<close> a2 a3 a4 a5 by fastforce
+      qed
+    qed
+next
+    fix lower upper iter
+    assume a1: "f lower * f upper \<le> 0"
+    assume a2: "a \<le> lower"
+    assume a3: "upper \<le> b"
+    assume a4: "lower < upper"
+    assume a5: "upper - lower = (b - a) / 2 ^ iter"
+    assume a6: "\<not> tol < (b - a) / 2 ^ iter"
+
+    then have "upper - lower \<le> tol"
+      by (simp add: a5)
+
+    show "\<exists>c. f c = 0 \<and> a < c \<and> c < b \<and> \<bar>c - upper\<bar> \<le> (b - a) / 2 ^ iter"
+    proof(cases "f(upper) = 0")
+      show "f upper = 0 \<Longrightarrow> \<exists>c. f c = 0 \<and> a < c \<and> c < b \<and> \<bar>c - upper\<bar> \<le> (b - a) / 2 ^ iter"
+        by (smt (verit, ccfv_SIG) a2 a3 a4 a5 mult_eq_0_iff opposite_signs)
+    next
+      assume "f upper \<noteq> 0"
+      show "\<exists>c. f c = 0 \<and> a < c \<and> c < b \<and> \<bar>c - upper\<bar> \<le> (b - a) / 2 ^ iter"
+      proof(cases "f  lower = 0")
+        show "f lower = 0 \<Longrightarrow> \<exists>c. f c = 0 \<and> a < c \<and> c < b \<and> \<bar>c - upper\<bar> \<le> (b - a) / 2 ^ iter"
+          by (smt (verit, del_insts) a2 a3 a4 a5 mult_eq_0_iff opposite_signs)
+      next
+        assume "f lower \<noteq> 0"
+        then  have "f(lower) * f(upper) < 0"
+          by (meson \<open>f upper \<noteq> 0\<close> a1 less_eq_real_def mult_eq_0_iff)
+
+
+        have "{lower..upper} \<subseteq> {a..b}"
+          by (simp add: a2 a3)          
+        then have f_continuous: "continuous_on {lower..upper} f"
+          by (meson continuous_f continuous_on_subset)
+        then show "\<exists>c. f c = 0 \<and> a < c \<and> c < b \<and> \<bar>c - upper\<bar> \<le> (b - a) / 2 ^ iter"
+          using Bolzanos_IVT \<open>f lower * f upper < 0\<close> a2 a3 a4 a5 by fastforce
+    qed
+  qed
+qed
+
+
+
+
+
+
+lemma bisection_with_root_check_error_bound:   
+  assumes a_less_than_b: "(a::real) < (b::real)"
+  assumes continuous_f: "continuous_on {a..b} f"
+  assumes opposite_signs: "f(a)*f(b)<0"
+  assumes postive_tolerance: "tol > 0"
+  shows "H{True} bisection_with_root_check(f,a,b,tol) {\<exists> (c::real). (f(c) = 0 \<and> a < c \<and> c < b \<and>  (abs(c - xmid) \<le> (b - a)/(2^(iter))))}"
   unfolding continuous_on_def
 proof(vcg)
   show "\<And>upper iter xmid.
@@ -423,8 +580,21 @@ procedure secant "(f :: real \<Rightarrow> real, x\<^sub>0 :: real, tol :: real,
 "
 
 
+(*
+procedure fibonacci "(n :: nat)" over state
+ = "fibonacci <- function(n) {
+    if(n == 0)
+        return(0)
+    if(n == 1)
+        return(1)
+    return(fibonacci(n - 1) + fibonacci(n - 2))
+"
 
-
+lemma fibonnacci_verified:   
+  "H{True} fibonacci(n) {\<exists> (c::real). (f(c) = 0 \<and> a < c \<and> c < b \<and>  (abs(c - xmid) \<le> (b - a)/(2^(iter))))}"
+  unfolding continuous_on_def
+proof(vcg)
+*)
 
 
 
