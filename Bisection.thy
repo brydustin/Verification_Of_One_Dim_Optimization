@@ -1,20 +1,6 @@
 theory Bisection
-  imports "ITree_VCG.ITree_VCG"   "HOL-Analysis.Analysis" "HOL.Topological_Spaces" "HOL-Library.Log_Nat"  "HOL-Number_Theory.Fib" HOL.Orderings
+  imports "ITree_Numeric_VCG.ITree_Numeric_VCG"
 begin
-
-instantiation rat :: default
-begin          
-definition "default_rat = (0::rat)"
-instance ..
-end
-
-
-
-instantiation real :: default
-begin          
-definition "default_real = (0::real)"
-instance ..
-end
 
 zstore state = 
   xs :: "rat list"
@@ -41,16 +27,16 @@ zstore state =
   oldfx :: "real"
   newx :: "real"
   X :: "real"
-  
 
 term "\<lambda> x. 5 - 0.1 * x"
 
-procedure euler "(f :: rat \<Rightarrow> rat, x\<^sub>0 :: rat, t :: rat, steps :: nat)" over state
+program euler "(f :: rat \<Rightarrow> rat, x\<^sub>0 :: rat, t :: rat, steps :: nat)" over state
   = "xs := [x\<^sub>0];
      for i in [0..<steps-1]
      do 
        xs := xs @ [xs!i + t * f(xs!i)]
-     od"
+     od;
+     exit xs"
 
 execute "euler (\<lambda> x. - 0.1 * x, 0.1, 1, 10)"
 
@@ -74,7 +60,7 @@ lemma "sgn(-3 ::real) = -1"
 (*Note:  Whenever possible I try to emulate the style of the R source code*)
 
 
-procedure bisection "(f :: real \<Rightarrow> real, a :: real, b :: real, tol :: real)" over state
+program bisection "(f :: real \<Rightarrow> real, a :: real, b :: real, tol :: real)" over state
  = "iter := 0;
     fa:= f(a);
     fb:= f(b);
@@ -91,7 +77,7 @@ procedure bisection "(f :: real \<Rightarrow> real, a :: real, b :: real, tol ::
                                     \<and> (ymid = f(xmid))
                                     \<and> (fa = f(lower))
                                     \<and> (fb = f(upper))
-                                    \<and> ((a \<le> lower) & (upper \<le> b))
+                                    \<and> ((a \<le> lower) \<and> (upper \<le> b))
                                     \<and> (fa = f(lower))
                                     \<and> (fb = f(upper))
                                     \<and> ((lower < upper))
@@ -108,13 +94,7 @@ procedure bisection "(f :: real \<Rightarrow> real, a :: real, b :: real, tol ::
     app_root:= (lower+upper)/2
 "
 
-
-
-
-
-
-
-procedure bisection_with_root_check "(f :: real \<Rightarrow> real, a :: real, b :: real, tol :: real)" over state
+program bisection_with_root_check "(f :: real \<Rightarrow> real, a :: real, b :: real, tol :: real)" over state
  = "iter := 0;
     fa:= f(a);
     fb:= f(b);
@@ -131,7 +111,7 @@ procedure bisection_with_root_check "(f :: real \<Rightarrow> real, a :: real, b
                                     \<and> (ymid = f(xmid))
                                     \<and> (fa = f(lower))
                                     \<and> (fb = f(upper))
-                                    \<and> ((a \<le> lower) & (upper \<le> b))
+                                    \<and> ((a \<le> lower) \<and> (upper \<le> b))
                                     \<and> (fa = f(lower))
                                     \<and> (fb = f(upper))
                                     \<and> ((lower < upper))
