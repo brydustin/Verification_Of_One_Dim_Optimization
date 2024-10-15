@@ -3,62 +3,19 @@ theory Bisection
 begin
 
 zstore state = 
-  xs :: "rat list"
-  c :: "real"
-  error :: "rat list"
-  func_vals :: "rat list"
-  lower :: "real"
-  upper :: "real"
   iter :: "nat"
   fa :: "real"
   fb :: "real"
-  fx :: "real"
+  lower :: "real"
+  upper :: "real"
   xmid :: "real"
   ymid :: "real"
-  app_root :: "real"
-  phi :: "real"
-  aStar :: "real"
-  bStar :: "real"
-  A :: "rat"
-  B :: "rat"
-  x_min :: "real"
-  f_min :: "real"
-  oldx :: "real"
-  oldfx :: "real"
-  newx :: "real"
-  X :: "real"
-
-term "\<lambda> x. 5 - 0.1 * x"
-
-program euler "(f :: rat \<Rightarrow> rat, x\<^sub>0 :: rat, t :: rat, steps :: nat)" over state
-  = "xs := [x\<^sub>0];
-     for i in [0..<steps-1]
-     do 
-       xs := xs @ [xs!i + t * f(xs!i)]
-     od;
-     exit xs"
-
-execute "euler (\<lambda> x. - 0.1 * x, 0.1, 1, 10)"
-
-(*Log base 2 of 2 is 1*)
-lemma  "log 2 2 = 1"
-  by simp
-
-
-lemma "sgn(-3 ::real) = -1"
-  by simp
-
-
-
-
+  root :: "real"
 
 (*Some documentation*)
 (*https://github.com/cran/cmna/blob/master/R/bisection.R*)
 (*https://search.r-project.org/CRAN/refmans/cmna/html/bisection.html*)
-
-(*Below: m stands for the maximum iterations allowed*)
 (*Note:  Whenever possible I try to emulate the style of the R source code*)
-
 
 program bisection "(f :: real \<Rightarrow> real, a :: real, b :: real, tol :: real)" over state
  = "iter := 0;
@@ -73,15 +30,15 @@ program bisection "(f :: real \<Rightarrow> real, a :: real, b :: real, tol :: r
     while (upper - lower > tol) 
 
     inv (fa * fb \<le> 0) 
-                                    \<and> ((lower = xmid) \<or> (xmid = upper))
-                                    \<and> (ymid = f(xmid))
-                                    \<and> (fa = f(lower))
-                                    \<and> (fb = f(upper))
-                                    \<and> ((a \<le> lower) \<and> (upper \<le> b))
-                                    \<and> (fa = f(lower))
-                                    \<and> (fb = f(upper))
-                                    \<and> ((lower < upper))
-                                    \<and> ((upper - lower) = (b - a) / 2^iter)
+      \<and> ((lower = xmid) \<or> (xmid = upper))
+      \<and> (ymid = f(xmid))
+      \<and> (fa = f(lower))
+      \<and> (fb = f(upper))
+      \<and> ((a \<le> lower) \<and> (upper \<le> b))
+      \<and> (fa = f(lower))
+      \<and> (fb = f(upper))
+      \<and> ((lower < upper))
+      \<and> ((upper - lower) = (b - a) / 2^iter)
 
     do
       iter:= iter + 1;
@@ -89,9 +46,12 @@ program bisection "(f :: real \<Rightarrow> real, a :: real, b :: real, tol :: r
       xmid:= (lower + upper)/2;      
       ymid:= f(xmid);
 
-      if (fa*ymid >0) then (lower:= xmid; fa:= ymid) else (upper:= xmid; fb:= ymid) fi
+      if fa*ymid >0  
+      then lower:= xmid; fa:= ymid 
+      else upper:= xmid; fb:= ymid 
+      fi
     od;
-    app_root:= (lower+upper)/2
+    root:= (lower+upper)/2
 "
 
 program bisection_with_root_check "(f :: real \<Rightarrow> real, a :: real, b :: real, tol :: real)" over state
@@ -107,15 +67,15 @@ program bisection_with_root_check "(f :: real \<Rightarrow> real, a :: real, b :
     while (upper - lower > tol) \<and> ymid \<noteq> 0  
 
     inv (fa * fb \<le> 0) 
-                                    \<and> ((lower = xmid) \<or> (xmid = upper))
-                                    \<and> (ymid = f(xmid))
-                                    \<and> (fa = f(lower))
-                                    \<and> (fb = f(upper))
-                                    \<and> ((a \<le> lower) \<and> (upper \<le> b))
-                                    \<and> (fa = f(lower))
-                                    \<and> (fb = f(upper))
-                                    \<and> ((lower < upper))
-                                    \<and> ((upper - lower) = (b - a) / 2^iter)
+      \<and> ((lower = xmid) \<or> (xmid = upper))
+      \<and> (ymid = f(xmid))
+      \<and> (fa = f(lower))
+      \<and> (fb = f(upper))
+      \<and> ((a \<le> lower) \<and> (upper \<le> b))
+      \<and> (fa = f(lower))
+      \<and> (fb = f(upper))
+      \<and> ((lower < upper))
+      \<and> ((upper - lower) = (b - a) / 2^iter)
 
     do
       iter:= iter + 1;
@@ -125,16 +85,9 @@ program bisection_with_root_check "(f :: real \<Rightarrow> real, a :: real, b :
 
       if (fa*ymid >0) then (lower:= xmid; fa:= ymid) else (upper:= xmid; fb:= ymid) fi
     od;
-    app_root:= (lower+upper)/2
+    root:= (lower+upper)/2
 "
-
-value "(2::nat)^(2::nat)"
-
-
-execute "bisection (\<lambda> x. (x*x*x) -2*x*x - 159 , 0, 10, 0.0001)"  (*This has a root of 6.17 as desired!*)
-
-execute "bisection (\<lambda> x.  (x*x), -1, 1, 0.0001)"  (*This has a root of 6.17 as desired!*)
-
+execute "bisection (\<lambda> x. (x*x*x) -2*x*x - 159 , 0, 10, 0.00000000001)"  (*This has a root of 6.17 as desired!*)
 
 lemma Bolzanos_IVT:
   fixes f :: "real \<Rightarrow> real"
@@ -165,16 +118,12 @@ proof -
     by (smt (verit, best) \<open>f \<alpha> \<noteq> 0\<close> \<open>f \<beta> \<noteq> 0\<close> atLeastAtMost_iff)
 qed
 
-
 (*Some questions to ask: 
 
 (1) How do we incorporate m into the procedure and proof?
 (2) Is it appropriate to have a check for ymid = 0 if this is not the official version for R?
 (3) Supposing it is appropriate to check for ymid = 0, are we correctly returning the root for that special case or merely the nearby "root" defined in the procedure?
 (4) Are there any good lemmas we can state about the output "root".... and is "root" just the same as xmid?*)
-
-
-
 
 lemma bisection_error_bound:   
   assumes a_less_than_b: "(a::real) < (b::real)"
@@ -281,8 +230,6 @@ next
         assume "f lower \<noteq> 0"
         then  have "f(lower) * f(upper) < 0"
           by (meson \<open>f upper \<noteq> 0\<close> a1 less_eq_real_def mult_eq_0_iff)
-
-
         have "{lower..upper} \<subseteq> {a..b}"
           by (simp add: a2 a3)          
         then have f_continuous: "continuous_on {lower..upper} f"
@@ -292,11 +239,6 @@ next
     qed
   qed
 qed
-
-
-
-
-
 
 lemma bisection_with_root_check_error_bound:   
   assumes a_less_than_b: "(a::real) < (b::real)"
@@ -420,163 +362,5 @@ next
     show "\<And>lower upper iter. a \<le> lower \<Longrightarrow> upper \<le> b \<Longrightarrow> lower < upper \<Longrightarrow> upper - lower = (b - a) / 2 ^ iter \<Longrightarrow> f upper = 0 \<Longrightarrow> \<exists>c. f c = 0 \<and> a < c \<and> c < b \<and> \<bar>c - upper\<bar> \<le> (b - a) / 2 ^ iter"
       using less_eq_real_def opposite_signs by auto
 qed
-
-
-
- 
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  
-
-(*Caution:  A terrible rational approximation of phi = (sqrt(5) - 1) / 2  is used below! !*)
-
-(*https://github.com/cran/cmna/blob/master/R/goldsect.R*)
-
-
-(*return the \code{x} value of the minimum found*)
-
-
-
-(*
-procedure goldensectmin "(f :: real \<Rightarrow> real, a :: real, b :: real, tol :: real, m :: nat)" over state 
-  = "iter:= 0;
-    phi:= 0.6;  
-    A:= a;
-    B:= b;
-    
-
-    aStar:= b - phi * abs(b - a);
-    bStar:= a + phi * abs(b - a);
-    
-    while (abs(B-A) > tol)
-    do
-      iter:= iter + 1;
-      if (iter > m) then Stop fi;
-      if (f(aStar) < f(bStar)) then
-        B:= bStar;
-        bStar:= aStar;
-        aStar:= B - (phi * abs(B - A))
-      else
-        A:= aStar;
-        aStar:= bStar;
-        bStar:= A + (phi * abs(B - A))
-      fi
-    od;
-    x_min:= (A+B)/2;
-    f_min:= f(x_min)"
-     
-execute "goldensectmin (\<lambda> x. x^2 - 3 * x + 3 , 0, 5, 0.1, 100)"
-*)
-
-(*https://github.com/cran/cmna/blob/master/R/newton.R*)
-
-
-procedure newton "(f :: real \<Rightarrow> real, fp :: real \<Rightarrow> real, x\<^sub>0 :: real, tol :: real, m :: nat)" over state 
-  = "iter:= 0;
-
-    oldx:= x\<^sub>0;
-    X:= oldx + 10*tol;
-    
-    while (abs(X - oldx) > tol)
-        
-                             
-    do
-      iter:= iter + 1;
-      if (iter > m) then Stop fi;
-      oldx:= X;
-      X:= X - f(X)/fp(X)
-    od"
-
-
-execute "newton (\<lambda> x.(x^3 - 2 * x^2 - 159 * x - 540) , \<lambda> x. (3 * x^2 - 4 * x - 159), 1, 0.001, 100)"
-
-
-execute "newton (\<lambda> x.(x^3) , \<lambda> x. (3*x^2), 1, 0.001, 100)"
-
-
-(*I would like to work on newton method and gradient
- descent in higher dimensions but that would require me to have a way to calculate vector norms.  
-is there a vector equivalent to the "abs" function?*)
-
-
-(* A Deep Dive Into How R Fits a Linear Model: 
-http://madrury.github.io/jekyll/update/statistics/2016/07/20/lm-in-R.html*)
-
-
-procedure secant "(f :: real \<Rightarrow> real, x\<^sub>0 :: real, tol :: real, m :: nat)" over state 
-  = "iter:= 0;
-
-    oldx:= x\<^sub>0;
-    oldfx := f(x\<^sub>0);
-    X:= oldx + 10*tol;
-    
-    while (abs(X - oldx) > tol)
-    do
-      iter:= iter + 1;
-      
-      fx:= X;
-      newx := X - fx*((X-oldx)/(fx-oldfx));
-      oldx := X;
-      oldfx:= fx;
-      X:= newx
-    od
-"
-
-
-(*
-procedure fibonacci "(n :: nat)" over state
- = "fibonacci <- function(n) {
-    if(n == 0)
-        return(0)
-    if(n == 1)
-        return(1)
-    return(fibonacci(n - 1) + fibonacci(n - 2))
-"
-
-lemma fibonnacci_verified:   
-  "H{True} fibonacci(n) {\<exists> (c::real). (f(c) = 0 \<and> a < c \<and> c < b \<and>  (abs(c - xmid) \<le> (b - a)/(2^(iter))))}"
-  unfolding continuous_on_def
-proof(vcg)
-*)
-
-
-
 
 end
