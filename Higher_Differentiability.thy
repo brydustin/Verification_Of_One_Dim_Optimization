@@ -2257,7 +2257,7 @@ proof (induct k arbitrary: f x h)
         nth_derivative_differentiable
       by blast
     finally have obs1: "nth_derivative k (\<lambda>x. frechet_derivative f (at x) h) x h
-      = h * deriv (\<lambda>x. nth_derivative k f x h) x" .
+      = h * deriv (\<lambda>x. nth_derivative k f x h) x".
     have "\<forall>x\<in>S. (\<lambda>x. nth_derivative k f x h) differentiable at x"
       using Suc.prems(1) nth_derivative_differentiable by blast
     hence "\<forall>x\<in>S. \<exists>f'. ((\<lambda>x. nth_derivative k f x h) has_derivative (*) f') (at x within S)"
@@ -2268,28 +2268,22 @@ proof (induct k arbitrary: f x h)
       "((\<lambda>x. nth_derivative k f x h) has_derivative (*) df) (at x within S)"
       using Suc.prems(2) by blast
     have obs2: "deriv (\<lambda>x. nth_derivative k f x h) x = deriv (\<lambda>x. h ^ k * Nth_derivative k f x) x"
-      apply (rule Auxiliary_Facts.deriv_transfer(1)[OF \<open>open S\<close> \<open>x \<in> S\<close>, where f'=df])
-      using Suc.hyps[OF higher_on_k] df_def by blast+
-    have obs3: "nth_derivative k (\<lambda>x. frechet_derivative f (at x) h) x h
-      = h * deriv (\<lambda>x. h ^ k * Nth_derivative k f x) x"
-      using obs1 obs2 by simp
+      using Suc.hyps[OF higher_on_k] df_def
+      by (subst Auxiliary_Facts.deriv_transfer(1)[OF \<open>open S\<close> \<open>x \<in> S\<close>, where f'=df], simp_all)      
     have "\<forall>x\<in>S. (\<lambda>z. nth_derivative k f z 1) differentiable at x" 
       using higher_differentiable_on_real_Suc'[OF \<open>open S\<close>, THEN iffD1, OF Suc.prems(1)]
       by clarsimp
     hence "Nth_derivative k f differentiable at y" if "y \<in> S" for y
-      apply (erule_tac x=y in ballE)
-       apply (clarsimp simp: differentiable_def at_within_open[OF \<open>y \<in> S\<close> \<open>open S\<close>, symmetric])
-      using Suc.hyps[OF higher_on_k, where h=1, simplified] assms(1) 
-        has_derivative_transform_within_open \<open>y \<in> S\<close> 
-      by blast+
+      using Suc.hyps[OF higher_on_k, where h=1, simplified] assms(1) \<open>y \<in> S\<close>
+      by (erule_tac x=y in ballE, metis (no_types, lifting) differentiable_eqI, meson)           
     hence "deriv (\<lambda>x. h ^ k * Nth_derivative k f x) x 
       = h ^ k * deriv (\<lambda>x. Nth_derivative k f x) x"
-      apply (subst deriv_cmult)
-      using DERIV_deriv_iff_real_differentiable Suc.prems(2) field_differentiable_def 
-      by (auto simp add: Nth_deriv_eq_compow_deriv field_differentiable_def)
+      using DERIV_deriv_iff_real_differentiable Suc.prems(2) field_differentiable_def
+      by(subst deriv_cmult, 
+          auto simp add: Nth_deriv_eq_compow_deriv field_differentiable_def, meson)
     thus ?thesis
       using False
-      by (simp add: obs3)
+      by (simp add: obs1 obs2)
   qed
 qed simp
 
@@ -2303,7 +2297,7 @@ lemma "open S
    apply (erule_tac x=v in allE)
    apply (simp add: frechet_derivative_to_deriv higher_differentiable_on_congI)
   apply (clarsimp simp: higher_differentiable_on.simps)
-  by (metis (no_types, lifting) ext frechet_derivative_to_deriv higher_differentiable_on_cong)
+  by (smt (verit, best) frechet_derivative_to_deriv higher_differentiable_on_cong)
 
 lemma high_diff_on_imp_k_times_on:
   fixes f :: "real \<Rightarrow> real"
@@ -2313,10 +2307,9 @@ lemma high_diff_on_imp_k_times_on:
 proof(induct n)
   case 0
   then show ?case 
-    apply (clarsimp simp add: Smooth.higher_differentiable_on_real_Suc[OF \<open>open S\<close>]
-        k_times_differentiable_on_def)
-    using DERIV_deriv_iff_real_differentiable has_field_derivative_def zero_less_one 
-    by blast
+    using DERIV_deriv_iff_real_differentiable has_field_derivative_def zero_less_one
+    by (clarsimp simp add: Smooth.higher_differentiable_on_real_Suc[OF \<open>open S\<close>]
+        k_times_differentiable_on_def, blast)    
 next
   case (Suc n)
   hence obs1: "f (Suc n)-times_differentiable_on S"
@@ -2342,12 +2335,163 @@ next
   qed
   show ?case
     unfolding k_times_differentiable_on_def
-    apply (clarsimp simp: Smooth.higher_differentiable_on_real_Suc[OF \<open>open S\<close>] 
-         simp del: Nth_derivative.simps funpow.simps k_times_differentiable_at.simps)
-    apply (subst k_times_differentiable_at.simps)
     using obs1[unfolded k_times_differentiable_on_def] obs2
-    by (metis assms open_real)
+    by (clarsimp simp: Smooth.higher_differentiable_on_real_Suc[OF \<open>open S\<close>] 
+         simp del: Nth_derivative.simps funpow.simps k_times_differentiable_at.simps,
+        subst k_times_differentiable_at.simps,   
+        metis assms open_real)
 qed
+
+lemma higher_differentiable_on_real_imp_Ck_on:
+  fixes f :: "real \<Rightarrow> real" and U :: "real set"
+  assumes Uop: "open U"
+  shows "higher_differentiable_on U f k \<Longrightarrow> C_k_on k f U"
+proof (induction k arbitrary: f)
+  case 0
+  then show ?case
+    by (simp add: C_k_on_def Uop higher_differentiable_on.simps)
+next
+  case (Suc k)
+  assume H: "higher_differentiable_on U f (Suc k)"
+  then have D0: "\<forall>x\<in>U. f differentiable (at x)"
+    by (simp add: higher_differentiable_on.simps)
+  have Hv: "\<forall>v. higher_differentiable_on U (\<lambda>x. frechet_derivative f (at x) v) k"
+    using H by (simp add: higher_differentiable_on.simps)
+
+  text \<open>On \<real>\<rightarrow>\<real>, the v=1 slice equals the ordinary derivative.\<close>
+  have Hder: "higher_differentiable_on U (\<lambda>x. deriv f x) k"
+  proof -
+    have "higher_differentiable_on U (\<lambda>x. frechet_derivative f (at x) 1) k"
+      using Hv by simp
+    moreover have "\<And>x. x\<in>U \<Longrightarrow> frechet_derivative f (at x) 1 = deriv f x"
+      using D0 by (simp add: frechet_derivative_one_eq_deriv)
+    ultimately show ?thesis
+      by (simp add: assms higher_differentiable_on_congI)
+  qed
+
+  text \<open>Apply the IH to the derivative field.\<close>
+  have CKder: "C_k_on k (\<lambda>x. deriv f x) U"
+    using Suc.IH[OF Hder].
+
+  text \<open>We need continuity of the first derivative on U.\<close>
+  have cont_deriv: "continuous_on U (deriv f)"
+  proof (cases k)
+    case 0
+    then show ?thesis using CKder by (simp add: C_k_on_def)
+  next
+    case (Suc m)
+    then have "\<forall>x\<in>U. (\<lambda>x. deriv f x) differentiable (at x)"
+      using Hder by (simp add: higher_differentiable_on.simps)    
+    thus ?thesis
+      using Hder higher_differentiable_on_imp_continuous_on by blast 
+  qed
+
+  text \<open>And f is differentiable on U by openness.\<close>
+  have f_on: "f differentiable_on U"
+    using D0 Uop Suc.prems higher_differentiable_on_imp_differentiable_on by blast 
+
+  text \<open>Assemble all rows n < Suc k for C_{Suc k}.\<close>
+  have grid:
+    "\<forall>n < Suc k.
+       Nth_derivative n f differentiable_on U
+     \<and> continuous_on U (Nth_derivative (Suc n) f)"
+  proof (intro allI impI)
+    fix n assume nlt: "n < Suc k"
+    consider (z) "n = 0" | (s) j where "n = Suc j" "j < k"
+      by (meson less_Suc_eq_0_disj nlt) 
+
+    then show
+      "Nth_derivative n f differentiable_on U
+       \<and> continuous_on U (Nth_derivative (Suc n) f)"
+    proof cases
+      case z
+      then show ?thesis using f_on cont_deriv by simp
+    next
+      case s
+      then obtain j where jlt: "j < k" and nj: "n = Suc j" by auto
+      from CKder have
+        "Nth_derivative j (deriv f) differentiable_on U
+         \<and> continuous_on U (Nth_derivative (Suc j) (deriv f))"
+        using jlt by (simp add: C_k_on_def)
+      thus ?thesis
+        using deriv_commutes_Nth_deriv nj by force
+    qed
+  qed
+
+  show ?case
+    using Uop grid by (simp add: C_k_on_def)
+qed
+
+lemma Ck_on_imp_higher_differentiable_on_real:
+  fixes f :: "real \<Rightarrow> real" and U :: "real set"
+  assumes Uop: "open U"
+  shows "C_k_on k f U \<Longrightarrow> higher_differentiable_on U f k"
+proof (induction k arbitrary: f)
+  case 0
+  then show ?case
+    by (simp add: C_k_on_def higher_differentiable_on.simps)
+next
+  case (Suc k)
+  assume C: "C_k_on (Suc k) f U"
+
+  have Uop': "open U" 
+    using C by (simp add: C_k_on_def)
+
+  text \<open>Pointwise differentiability of f on U from the n=0 row.\<close>
+
+  have "f differentiable_on U"
+    using C Uop' C_k_on_def by auto 
+
+  then have D0: "\<forall>x\<in>U. f differentiable (at x)"
+    using assms differentiable_on_openD by blast 
+
+  text \<open>Build C_k_on for the derivative field from the grid for f.\<close>
+  have Cg: "C_k_on k (\<lambda>x. deriv f x) U"
+    using C_k_on_def Suc.prems deriv_commutes_Nth_deriv by auto
+
+  text \<open>Convert that to higher_differentiable_on via IH.\<close>
+  have HDg: "higher_differentiable_on U (\<lambda>x. deriv f x) k"
+    by (simp add: Cg Suc.IH)
+
+
+  text \<open>For each v, frechet derivative equals v * deriv f on \<real>, and scaling preserves Cᵏ.\<close>
+  have Hv: "\<forall>v. higher_differentiable_on U (\<lambda>x. frechet_derivative f (at x) v) k"
+  proof
+    fix v :: real
+    have "higher_differentiable_on U (\<lambda>x. v * deriv f x) k"
+      using HDg
+    proof (induction k)
+      show "higher_differentiable_on U (deriv f) 0 \<Longrightarrow> 
+            higher_differentiable_on U (\<lambda>x. v * deriv f x) 0"
+        using C0_on_def C_k_scale assms higher_differentiable_on.simps(1) by blast
+    next
+      fix k :: nat
+      assume IH_imp: "(higher_differentiable_on U (deriv f) k \<Longrightarrow> higher_differentiable_on U (\<lambda>x. v * deriv f x) k)"
+      assume IH: "higher_differentiable_on U (deriv f) (Suc k)"
+      show "higher_differentiable_on U (\<lambda>x. v * deriv f x) (Suc k)"
+        by (simp add: IH assms higher_differentiable_on_const higher_differentiable_on_mult)
+    qed
+    moreover have eqv: "\<And>x. x\<in>U \<Longrightarrow> frechet_derivative f (at x) v = v * deriv f x"
+      using D0 frechet_derivative_to_deriv by blast 
+
+    ultimately show "higher_differentiable_on U (\<lambda>x. frechet_derivative f (at x) v) k"
+      by (subst higher_differentiable_on_cong[OF _ _ eqv], simp_all, simp add: Uop) 
+  qed
+  show ?case
+    by (simp add: higher_differentiable_on.simps D0 Hv)
+qed
+
+
+corollary higher_differentiable_on_real_iff_Ck_on:
+  fixes f :: "real \<Rightarrow> real" and U :: "real set"
+  assumes Uop: "open U"
+  shows "higher_differentiable_on U f k \<longleftrightarrow> C_k_on k f U"
+  using Ck_on_imp_higher_differentiable_on_real assms higher_differentiable_on_real_imp_Ck_on by blast
+
+  
+
+
+
 
 lemma k_times_on_imp_high_diff_on:
   fixes f :: "real \<Rightarrow> real"
