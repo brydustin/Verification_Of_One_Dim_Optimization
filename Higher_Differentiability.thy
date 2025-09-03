@@ -2217,6 +2217,149 @@ next
   then show ?thesis using Suc by simp
 qed
 
+lemma frechet_derivative_to_deriv:
+  fixes f :: "real \<Rightarrow> real"
+  assumes "f differentiable (at x)"
+  shows "frechet_derivative f (at x) h = h * deriv f x"
+  by (simp add: assms field_derivative_eq_vector_derivative
+      frechet_derivative_eq_vector_derivative)
+
+lemma frechet_derivative_one_eq_deriv:
+  fixes f :: "real \<Rightarrow> real"
+  assumes "f differentiable (at x)"
+  shows "frechet_derivative f (at x) 1 = deriv f x"
+  using frechet_derivative_to_deriv[OF assms]
+  using frechet_derivative_at_real_eq_scaleR[OF assms]
+  by simp
+
+lemma nth_derivative_eq_Nth_derivative:
+  fixes f :: "real \<Rightarrow> real"
+  assumes "open S" and "higher_differentiable_on S f k" and "x \<in> S"
+  shows "nth_derivative k f x h = (h^k) * Nth_derivative k f x"
+  using assms(2,3)
+proof (induct k arbitrary: f x h)
+  case (Suc k)
+  then show ?case
+  proof(cases "k = 0")
+    case True
+    then show ?thesis
+      using Suc.prems frechet_derivative_to_deriv 
+        higher_differentiable_on.simps(2) 
+      by clarsimp blast
+  next
+    case False
+    note higher_on_k = higher_differentiable_on_SucD[OF Suc.prems(1)]
+    have "nth_derivative k (\<lambda>x. frechet_derivative f (at x) h) x h 
+     = frechet_derivative (\<lambda>x. nth_derivative k f x h) (at x) h"
+      by (simp add: frechet_derivative_nth_derivative_commute)
+    also have "... = h * deriv (\<lambda>x. nth_derivative k f x h) x"
+      using Suc.prems(1,2) frechet_derivative_to_deriv 
+        nth_derivative_differentiable
+      by blast
+    finally have obs1: "nth_derivative k (\<lambda>x. frechet_derivative f (at x) h) x h
+      = h * deriv (\<lambda>x. nth_derivative k f x h) x" .
+    have "\<forall>x\<in>S. (\<lambda>x. nth_derivative k f x h) differentiable at x"
+      using Suc.prems(1) nth_derivative_differentiable by blast
+    hence "\<forall>x\<in>S. \<exists>f'. ((\<lambda>x. nth_derivative k f x h) has_derivative (*) f') (at x within S)"
+      using DERIV_deriv_iff_real_differentiable differentiable_def 
+        has_derivative_at_withinI has_field_derivative_def 
+      by blast
+    then obtain df where df_def:
+      "((\<lambda>x. nth_derivative k f x h) has_derivative (*) df) (at x within S)"
+      using Suc.prems(2) by blast
+    have obs2: "deriv (\<lambda>x. nth_derivative k f x h) x = deriv (\<lambda>x. h ^ k * Nth_derivative k f x) x"
+      apply (rule Auxiliary_Facts.deriv_transfer(1)[OF \<open>open S\<close> \<open>x \<in> S\<close>, where f'=df])
+      using Suc.hyps[OF higher_on_k] df_def by blast+
+    have obs3: "nth_derivative k (\<lambda>x. frechet_derivative f (at x) h) x h
+      = h * deriv (\<lambda>x. h ^ k * Nth_derivative k f x) x"
+      using obs1 obs2 by simp
+    have "\<forall>x\<in>S. (\<lambda>z. nth_derivative k f z 1) differentiable at x" 
+      using higher_differentiable_on_real_Suc'[OF \<open>open S\<close>, THEN iffD1, OF Suc.prems(1)]
+      by clarsimp
+    hence "Nth_derivative k f differentiable at y" if "y \<in> S" for y
+      apply (erule_tac x=y in ballE)
+       apply (clarsimp simp: differentiable_def at_within_open[OF \<open>y \<in> S\<close> \<open>open S\<close>, symmetric])
+      using Suc.hyps[OF higher_on_k, where h=1, simplified] assms(1) 
+        has_derivative_transform_within_open \<open>y \<in> S\<close> 
+      by blast+
+    hence "deriv (\<lambda>x. h ^ k * Nth_derivative k f x) x 
+      = h ^ k * deriv (\<lambda>x. Nth_derivative k f x) x"
+      apply (subst deriv_cmult)
+      using DERIV_deriv_iff_real_differentiable Suc.prems(2) field_differentiable_def 
+      by (auto simp add: Nth_deriv_eq_compow_deriv field_differentiable_def)
+    thus ?thesis
+      using False
+      by (simp add: obs3)
+  qed
+qed simp
+
+lemma "open S 
+  \<Longrightarrow> higher_differentiable_on S (f::real \<Rightarrow> real) (Suc n) \<longleftrightarrow>
+   (\<forall>x\<in>S. f differentiable (at x)) \<and>
+   (\<forall>v. higher_differentiable_on S (\<lambda>x. v * deriv f x) n)"
+  apply (intro iffI conjI)
+    apply (simp add: higher_differentiable_on.simps)
+   apply (clarsimp simp: higher_differentiable_on.simps)
+   apply (erule_tac x=v in allE)
+   apply (simp add: frechet_derivative_to_deriv higher_differentiable_on_congI)
+  apply (clarsimp simp: higher_differentiable_on.simps)
+  by (metis (no_types, lifting) ext frechet_derivative_to_deriv higher_differentiable_on_cong)
+
+lemma high_diff_on_imp_k_times_on:
+  fixes f :: "real \<Rightarrow> real"
+  assumes "open S"
+  shows "higher_differentiable_on S f (Suc n)
+  \<Longrightarrow> f (Suc n)-times_differentiable_on S"
+proof(induct n)
+  case 0
+  then show ?case 
+    apply (clarsimp simp add: Smooth.higher_differentiable_on_real_Suc[OF \<open>open S\<close>]
+        k_times_differentiable_on_def)
+    using DERIV_deriv_iff_real_differentiable has_field_derivative_def zero_less_one 
+    by blast
+next
+  case (Suc n)
+  hence obs1: "f (Suc n)-times_differentiable_on S"
+    using higher_differentiable_on_SucD by blast
+  note higher_on_n = higher_differentiable_on_SucD[OF Suc.prems(1)]
+  have obs2: "(Nth_derivative (Suc n) f has_derivative (*) (Nth_derivative (Suc (Suc n)) f z)) (at z)"
+    (is "?K")
+    if "z \<in> S" for z
+  proof-
+    obtain f' where "((\<lambda>x. nth_derivative (Suc n) f x 1) has_derivative f') (at z within S)"
+      and f'_eq: "f' 1 = nth_derivative (Suc (Suc n)) f z 1"
+      using nth_derivative_exists[OF Suc(2) \<open>open S\<close> \<open>z \<in> S\<close>]
+      by (metis \<open>z \<in> S\<close> assms at_within_open)
+    hence "(Nth_derivative (Suc n) f has_derivative f') (at z within S)"
+      using nth_derivative_eq_Nth_derivative[OF \<open>open S\<close> higher_on_n, where h=1]
+      by (metis (no_types, lifting) has_derivative_transform mult_cancel_right2 power_one that)
+    moreover have "f' 1 = Nth_derivative (Suc (Suc n)) f z"
+      using nth_derivative_eq_Nth_derivative[OF \<open>open S\<close> Suc(2), where h=1]
+      by (simp add: f'_eq \<open>z \<in> S\<close>)
+    ultimately show ?K
+      by (metis DERIV_deriv_iff_real_differentiable assms at_within_open has_derivative_imp
+          has_field_derivative_imp_has_derivative that)
+  qed
+  show ?case
+    unfolding k_times_differentiable_on_def
+    apply (clarsimp simp: Smooth.higher_differentiable_on_real_Suc[OF \<open>open S\<close>] 
+         simp del: Nth_derivative.simps funpow.simps k_times_differentiable_at.simps)
+    apply (subst k_times_differentiable_at.simps)
+    using obs1[unfolded k_times_differentiable_on_def] obs2
+    by (metis assms open_real)
+qed
+
+lemma k_times_on_imp_high_diff_on:
+  fixes f :: "real \<Rightarrow> real"
+  assumes "open S"
+  shows "f (Suc n)-times_differentiable_on S
+  \<Longrightarrow> higher_differentiable_on S f (Suc n)"
+proof(induct n)
+  case 0
+  then show ?case 
+    apply (simp add: k_times_differentiable_on_def higher_differentiable_on.simps
+        differentiable_def)
+    oops
 
 lemma higher_differentiable_on_real_iff_k_times_on_Suc:
   fixes f :: "real \<Rightarrow> real"
