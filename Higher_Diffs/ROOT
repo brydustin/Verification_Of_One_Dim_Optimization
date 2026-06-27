@@ -1,7 +1,7 @@
 chapter Local
 
 session Higher_Diffs = "Smooth_Manifolds" +
-  options [timeout = 7200]
+  options [timeout = 7200, document = pdf, document_output = "output"]
   theories
     Limits_Higher_Order_Derivatives
     K_Times_Fr_Differentiable
@@ -11,3 +11,5 @@ session Higher_Diffs = "Smooth_Manifolds" +
     Taylor_Peano
     Vector_Calculus
     Vector_Calculus_Ck
+  document_files
+    "root.tex"

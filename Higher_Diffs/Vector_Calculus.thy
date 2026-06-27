@@ -906,12 +906,12 @@ qed
 
 
 text \<open>
-  For \<open>g : \<real>ᵐ \<rightarrow> \<real>\<close> that is \<open>C²\<close> on \<open>V\<close> and \<open>F : \<real>ⁿ \<rightarrow> \<real>ᵐ\<close> that is
-  \<open>C²\<close> on \<open>U\<close> with \<open>F(U) \<subseteq> V\<close>:
+  For \<open>g : \<real>\<^sup>m \<rightarrow> \<real>\<close> that is \<open>C\<^sup>2\<close> on \<open>V\<close> and \<open>F : \<real>\<^sup>n \<rightarrow> \<real>\<^sup>m\<close> that is
+  \<open>C\<^sup>2\<close> on \<open>U\<close> with \<open>F(U) \<subseteq> V\<close>:
 
-    \<open>\<nabla>²(g \<circ> F)(x) = Jᶠ(x)ᵀ \<^emph>\<^emph> \<nabla>²g(F(x)) \<^emph>\<^emph> Jᶠ(x) + \<Sigma>ᵣ (\<nabla>g(F(x)) $ r) *\<^sub>R \<nabla>²Fᵣ(x)\<close>
+    \<open>\<nabla>\<^sup>2(g \<circ> F)(x) = J\<^sup>f(x)\<^sup>T \<cdot>\<nabla>\<^sup>2g(F(x)) \<cdot>J\<^sup>f(x) + \<Sigma>\<^sub>r (\<nabla>g(F(x)) $ r) *\<^sub>R \<nabla>\<^sup>2F\<^sub>r(x)\<close>
 
-  where \<open>Jᶠ(x) = jacobian F x\<close> and \<open>Fᵣ(y) = F(y) $ r\<close>.
+  where \<open>J\<^sup>f(x) = jacobian F x\<close> and \<open>F\<^sub>r(y) = F(y) $ r\<close>.
 \<close>
 
 

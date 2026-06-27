@@ -1627,10 +1627,10 @@ subsection \<open>Affine composition (special case)\<close>
 (* ================================================================== *)
 
 text \<open>
-  If \<open>F(y) = A *v y + b\<close> is affine, then \<open>Jᶠ = A\<close> is constant and each
-  \<open>\<nabla>²Fᵣ = 0\<close>, so the chain rule simplifies to:
+  If \<open>F(y) = A *v y + b\<close> is affine, then \<open>J\<^sup>f = A\<close> is constant and each
+  \<open>\<nabla>\<^sup>2F\<^sub>r = 0\<close>, so the chain rule simplifies to:
 
-    \<open>\<nabla>²(g \<circ> F)(x) = Aᵀ \<^emph>\<^emph> \<nabla>²g(A *v x + b) \<^emph>\<^emph> A\<close>
+    \<open>\<nabla>\<^sup>2(g \<circ> F)(x) = A\<^sup>T \<cdot>\<nabla>\<^sup>2g(A *v x + b) \<cdot>A\<close>
 \<close>
 
 

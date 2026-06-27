@@ -49,7 +49,7 @@ next
   have Hv: "\<forall>v. higher_differentiable_on U (\<lambda>x. frechet_derivative f (at x) v) k"
     using H by (simp add: higher_differentiable_on.simps)
 
-  text \<open>On \<real>\<rightarrow>\<real>, the v=1 slice equals the ordinary derivative.\<close>
+  text \<open>On $\mathbb{R} \to \mathbb{R}$, the $v=1$ slice equals the ordinary derivative.\<close>
   have Hder: "higher_differentiable_on U (\<lambda>x. deriv f x) k"
   proof -
     have "higher_differentiable_on U (\<lambda>x. frechet_derivative f (at x) 1) k"
@@ -81,7 +81,7 @@ next
   have f_on: "f differentiable_on U"
     using D0 Uop Suc.prems higher_differentiable_on_imp_differentiable_on by blast
 
-  text \<open>Assemble all rows n < Suc k for C_{Suc k}.\<close>
+  text \<open>Assemble all rows $n < Suc\,k$ for $C_{Suc\,k}$.\<close>
   have grid:
     "\<forall>n < Suc k.
        (deriv ^^ n) f differentiable_on U
@@ -136,18 +136,18 @@ next
   then have D0: "\<forall>x\<in>U. f differentiable (at x)"
     using assms differentiable_on_openD by blast
 
-  text \<open>Build C_k_on for the derivative field from the grid for f.\<close>
+  text \<open>Build C\_k\_on for the derivative field from the grid for f.\<close>
   have Cg: "C_k_on k (\<lambda>x. deriv f x) U"
     using C_k_on_def Suc.prems kth_deriv_shift
     by (metis One_nat_def Suc_eq_plus1 diff_Suc_1'
         first_derivative_alt_def less_diff_conv old.nat.distinct(1) zero_less_Suc)
 
-  text \<open>Convert that to higher_differentiable_on via IH.\<close>
+  text \<open>Convert that to higher\_differentiable\_on via IH.\<close>
   have HDg: "higher_differentiable_on U (\<lambda>x. deriv f x) k"
     by (simp add: Cg Suc.IH)
 
 
-  text \<open>For each v, frechet derivative equals v * deriv f on \<real>, and scaling preserves Cᵏ.\<close>
+  text \<open>For each $v$, frechet derivative equals $v *$ deriv $f$ on $\mathbb{R}$, and scaling preserves $C^k$.\<close>
   have Hv: "\<forall>v. higher_differentiable_on U (\<lambda>x. frechet_derivative f (at x) v) k"
   proof
     fix v :: real
