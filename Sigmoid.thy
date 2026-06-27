@@ -1,8 +1,14 @@
+section \<open>The Sigmoid Function: Smoothness and Higher Derivatives\<close>
+
 theory Sigmoid
   imports "HOL-Analysis.Analysis" Complex_Main  "HOL-Combinatorics.Stirling"
 begin
 
-definition sigmoid :: "real \<Rightarrow> real" where 
+text \<open>The logistic sigmoid \<open>x \<mapsto> exp x / (1 + exp x)\<close>: basic identities, its
+  derivative and smoothness, and properties of its higher-order derivatives
+  (expressed via Stirling numbers).\<close>
+
+definition sigmoid :: "real \<Rightarrow> real" where
 "sigmoid = (\<lambda> x::real. exp(x) / (1 + exp(x)))"
 
 

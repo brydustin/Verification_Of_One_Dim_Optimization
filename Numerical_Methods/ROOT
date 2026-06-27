@@ -1,0 +1,19 @@
+chapter Local
+
+session Numerical_Methods = "ITree_Numeric_VCG" +
+  options [timeout = 14400]
+  sessions
+    "Refine_Monadic"
+    "Smooth_Manifolds"
+    "IEEE_Floating_Point"
+    Higher_Diffs
+  theories
+    Float_Default
+    Float_Vector
+    Bisection
+    Perceptron
+    Gradient_Descent
+    Cholesky_Comparison
+    Fixed_Point_Method
+    Newton
+    Verified_Numerical_Methods

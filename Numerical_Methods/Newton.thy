@@ -1,8 +1,14 @@
+section \<open>Newton's Method (imperative ITree program)\<close>
+
 theory Newton
   imports "ITree_Numeric_VCG.ITree_Numeric_VCG"
 begin
 
-zstore state = 
+text \<open>Newton's root-finding iteration \<open>x \<mapsto> x - f x / f' x\<close> as an imperative
+  ITree program over a small state record. The quadratic-convergence statement
+  is recorded but its proof is left open.\<close>
+
+zstore state =
   iter :: "nat"
   fx :: "real"
   f'x :: "real"

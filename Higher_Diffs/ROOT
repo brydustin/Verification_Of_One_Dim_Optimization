@@ -1,0 +1,13 @@
+chapter Local
+
+session Higher_Diffs = "Smooth_Manifolds" +
+  options [timeout = 7200]
+  theories
+    Limits_Higher_Order_Derivatives
+    K_Times_Fr_Differentiable
+    Ck_Differentiable
+    Higher_Diff_Subsumption
+    K_Times_Fr_Real
+    Taylor_Peano
+    Vector_Calculus
+    Vector_Calculus_Ck

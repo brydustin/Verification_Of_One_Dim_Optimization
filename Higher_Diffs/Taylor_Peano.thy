@@ -1,7 +1,7 @@
 section \<open>Taylor's Theorem with Peano Remainder\<close>
 
 theory Taylor_Peano
-  imports Sigmoid_Universal_Approximation.Limits_Higher_Order_Derivatives Higher_Differentiability
+  imports K_Times_Fr_Real
 begin
 
 subsection \<open>Real Polynomial Functions: Closure under Differentiation\<close>
@@ -24,11 +24,10 @@ proof -
     using p_def by auto
 qed
 
-lemma polynomial_function_Nth_derivative:
+lemma polynomial_function_kth_deriv:
   assumes "real_polynomial_function p"
-  shows   "real_polynomial_function (Nth_derivative k p)"
+  shows   "real_polynomial_function ((deriv ^^ k) p)"
   by(induct k, simp add: assms, simp add: deriv_real_polynomial_function)
-
 
 subsection \<open>Taylor Polynomials and Peano Remainders\<close>
 
@@ -38,25 +37,31 @@ interested in the Peano form of Taylor's formula. We, thus, focus on proving
 that result. \<close>
 
 theorem Taylor:
-  "\<forall>t. a \<le> t \<longrightarrow> t \<le> b \<longrightarrow> f n-times_differentiable_at t
- \<Longrightarrow> \<lbrakk>0 < n; a \<le> c; c \<le> b; a \<le> x; x \<le> b; x \<noteq> c\<rbrakk>
- \<Longrightarrow> \<exists>t. (if x < c then x < t \<and> t < c else c < t \<and> t < x) \<and>
-    f x = (\<Sum>m<n. ((deriv^^m) f) c / fact m * (x - c) ^ m) 
-      + ((deriv^^n) f) t / fact n * (x - c) ^ n"
-  by (rule MacLaurin.Taylor[where a=a and b=b]; clarsimp?)
-    (metis DERIV_deriv_iff_real_differentiable 
-      Nth_deriv_eq_compow_deriv n_times_diff_imp_lower_deriv_diff)
+  fixes f :: "real \<Rightarrow> real"
+  assumes kdiff: "\<forall>t. a \<le> t \<longrightarrow> t \<le> b \<longrightarrow> k_times_Fr_differentiable_at n f t"
+    and prems: "0 < n" "a \<le> c" "c \<le> b" "a \<le> x" "x \<le> b" "x \<noteq> c"
+  shows "\<exists>\<xi>. (if x < c then x < \<xi> \<and> \<xi> < c else c < \<xi> \<and> \<xi> < x) \<and>
+    f x = (\<Sum>m<n. ((deriv^^m) f) c / fact m * (x - c) ^ m)
+                + ((deriv^^n) f) \<xi> / fact n * (x - c) ^ n"
+proof -
+  have dcond: "\<forall>m t. m < n \<and> a \<le> t \<and> t \<le> b \<longrightarrow>
+      ((deriv ^^ m) f has_real_derivative (deriv ^^ Suc m) f t) (at t)"
+    using kdiff kfr_real_kth_deriv_has_derivative has_field_derivative_def
+    by blast
+  show ?thesis
+    using MacLaurin.Taylor[where diff = "\<lambda>m. (deriv ^^ m) f" and n = n and f = f
+            and a = a and b = b and c = c and x = x] dcond prems
+    by fastforce
+qed
 
 corollary Taylor_as_limit:
-  fixes f :: "real \<Rightarrow> real" and a b c :: real and n :: nat
+  fixes f :: "real \<Rightarrow> real"
   assumes npos: "0 < n"
-      and cAB:  "a \<le> c" "c \<le> b"
-      and diff: "\<And>t. a \<le> t \<Longrightarrow> t \<le> b \<Longrightarrow> f n-times_differentiable_at t"
+      and cAB: "c \<in> {a..b}"
       and cont: "isCont ((deriv ^^ n) f) c"
+      and diff: "\<And>t. t \<in> {a..b} \<Longrightarrow> k_times_Fr_differentiable_at n f t"
   shows "((\<lambda>x.
-            ( f x
-            - (\<Sum>m<n. ((deriv ^^ m) f) c / fact m * (x - c) ^ m)
-            - ((deriv ^^ n) f) c / fact n * (x - c) ^ n )
+           (f x - (\<Sum>m\<le>n. ((deriv ^^ m) f) c / fact m * (x - c) ^ m))
            / (x - c) ^ n) \<longlongrightarrow> 0) (at c within {a..b})"
 proof -
   define g where g_def: "g \<equiv> (deriv ^^ n) f"
@@ -85,8 +90,6 @@ proof -
          (if x < c then x < \<tau> x \<and> \<tau> x < c else c < \<tau> x \<and> \<tau> x < x)
        \<and> f x = S x + g (\<tau> x) / fact n * (x - c) ^ n"
     by metis
-
-
 
   have evAB: "eventually (\<lambda>x. x \<in> {a..b} - {c}) (at c within {a..b})"
     by (auto simp: eventually_at_filter)
@@ -125,8 +128,6 @@ proof -
     by (rule eventually_mono[OF evAB], auto,
         metis \<tau>_def abs_minus_commute abs_of_pos atLeastAtMost_iff 
         diff_gt_0_iff_gt diff_mono linorder_not_le not_less_iff_gr_or_eq)
-
-
   (* Hence \<tau> x \<rightarrow> c as x \<rightarrow> c within {a..b} *)
   have tendsto_tau:
   "((\<lambda>x. \<tau> x) \<longlongrightarrow> c) (at c within {a..b})"
@@ -163,29 +164,32 @@ proof -
   (* Continuity of g at c gives g(\<tau> x) \<rightarrow> g c *)
   have tendsto_g_tau:
     "((\<lambda>x. g (\<tau> x)) \<longlongrightarrow> g c) (at c within {a..b})"
-    using assms(5) continuous_within g_def tendsto_compose tendsto_tau by blast
-
+    using assms(3) continuous_within g_def tendsto_compose tendsto_tau by blast
 
  (* Thus (g(\<tau> x) - g c)/fact n \<rightarrow> 0 *)
-  have rhs_to_0:
-    "((\<lambda>x. (g (\<tau> x) - g c) / fact n) \<longlongrightarrow> 0) (at c within {a..b})"
+  have rhs_to_0: "((\<lambda>x. (g (\<tau> x) - g c) / fact n) \<longlongrightarrow> 0) (at c within {a..b})"
     by (simp add: LIM_zero tendsto_divide_zero tendsto_g_tau)
 
-    (* LHS equals RHS eventually, so the limits are equal *)
-  have cong_lim:
-    "(((\<lambda>x. ( f x
-             - S x
-             - g c / fact n * (x - c) ^ n) / (x - c) ^ n) \<longlongrightarrow> 0)
-       (at c within {a..b}))
-     =
-     (((\<lambda>x. (g (\<tau> x) - g c) / fact n) \<longlongrightarrow> 0)
-       (at c within {a..b}))"
+  have "(((\<lambda>x. ( f x - S x - g c / fact n * (x - c) ^ n) / (x - c) ^ n) \<longlongrightarrow> 0)(at c within {a..b}))
+     =  (((\<lambda>x. (g (\<tau> x) - g c) / fact n) \<longlongrightarrow> 0) (at c within {a..b}))"
     by (rule tendsto_cong) (use ev_eq in auto)
 
-  show ?thesis
-    using \<open>S \<equiv> \<lambda>x. \<Sum>m<n. (deriv ^^ m) f c / fact m * (x - c) ^ m\<close> cong_lim g_def rhs_to_0 by blast 
-qed
+  then have base_limit:
+    "((\<lambda>x.
+        ( f x
+        - (\<Sum>m<n. ((deriv ^^ m) f) c / fact m * (x - c) ^ m)
+        - ((deriv ^^ n) f) c / fact n * (x - c) ^ n )
+       / (x - c) ^ n) \<longlongrightarrow> 0) (at c within {a..b})"
+    using rhs_to_0 g_def S_def by simp
 
+  have "\<And>x. (\<Sum>m\<le>n. ((deriv ^^ m) f) c / fact m * (x - c) ^ m)
+        = (\<Sum>m<n. ((deriv ^^ m) f) c / fact m * (x - c) ^ m)
+          + ((deriv ^^ n) f) c / fact n * (x - c) ^ n"
+    using lessThan_Suc_atMost sum.lessThan_Suc by auto
+
+  then show ?thesis
+    by (smt (verit, ccfv_SIG) Lim_cong_within base_limit)    
+qed
 
 \<comment> \<open>
 \textbf{Taylor polynomial of order \(m\) at \(a\).}
@@ -193,118 +197,190 @@ We define
 \[
   T_m(f;a)(x) \;=\; \sum_{i=0}^{m} \frac{f^{(i)}(a)}{i!}\,(x-a)^{i},
 \]
-implemented as @{term \<open>taylor_poly m f a x\<close>} using @{const Nth_derivative}.
+implemented as @{term \<open>taylor_poly m f a x\<close>} using the iterated derivative
+@{term \<open>(deriv ^^ i) f\<close>}.
 This is a polynomial (in \(x\)) of degree at most \(m\) that matches the first
 \(m\) derivatives of \(f\) at the point \(a\).
 \<close>
 
 definition taylor_poly :: "nat \<Rightarrow> (real \<Rightarrow> real) \<Rightarrow> real \<Rightarrow> real \<Rightarrow> real" where
-  "taylor_poly m f a x \<equiv> (\<Sum> i \<le> m. (Nth_derivative i f a / fact i) * (x - a)^i)"
+  "taylor_poly n f c x \<equiv> (\<Sum> m \<le> n. ((deriv ^^ m) f c / fact m) * (x - c)^m)"
 
 \<comment> \<open>The Peano remainder term: the difference between \(f\) and its degree-\(m\) Taylor polynomial.\<close>
 
 definition peano_remainder ::
   "nat \<Rightarrow> (real \<Rightarrow> real) \<Rightarrow> real \<Rightarrow> real \<Rightarrow> real"
   where
-  "peano_remainder m f a x = f x - taylor_poly m f a x"
+  "peano_remainder n f c x = f x - taylor_poly n f c x"
 
-lemma Nth_derivative_taylor_term:
-  fixes a x :: real  and i k :: nat  and c :: real
-  shows
-    "Nth_derivative k (\<lambda>t. c * (t - a) ^ i) x =
-       (if k \<le> i then c * (of_nat (fact i) / of_nat (fact (i - k)))
-                       * (x - a) ^ (i - k)
-        else 0)"
-  by(subst kth_deriv_cmult, 
-      simp add: k_times_differentiable_at_pow, 
-      simp add: nth_derivative_diff_pow)
+lemma real_poly_diff_pow:
+  "real_polynomial_function (\<lambda>t::real. (t - a) ^ i)"
+  using real_polynomial_function_power real_polynomial_function_diff
+        real_polynomial_function.intros bounded_linear_ident
+  by blast
+
+lemma kth_deriv_taylor_term:
+  fixes x :: real
+  shows "(deriv ^^ k) (\<lambda>t. c * (t - a) ^ i) x =
+    (if k \<le> i then c * (of_nat (fact i) / of_nat (fact (i - k))) * (x - a) ^ (i - k) else 0)"
+proof -
+  have "(deriv ^^ k) (\<lambda>t. c * (t - a) ^ i) x = c * (deriv ^^ k) (\<lambda>t. (t - a) ^ i) x"
+    using kth_deriv_cmult_poly[OF real_poly_diff_pow]
+    by auto
+  also have "\<dots> = c * (if k \<le> i then fact i / fact (i - k) * (x - a) ^ (i - k) else 0)"
+    using kth_deriv_diff_pow[where n = k and a = a and k = i and x = x]
+    by auto
+  also have "\<dots> =
+    (if k \<le> i then c * (of_nat (fact i) / of_nat (fact (i - k))) * (x - a) ^ (i - k) else 0)"
+    by simp
+  finally show ?thesis
+    by blast
+qed
 
 subsection \<open>Derivatives of the Taylor Polynomial and Peano Remainder\<close>
 
 \<comment> \<open>Derivative rule: For \(k \le m\), the \(k\)-th derivative of the degree-\(m\)
     Taylor polynomial at its centre equals the \(k\)-th derivative of the  original function.\<close>
 
-lemma taylor_poly_diff_at:
-  fixes f :: "real \<Rightarrow> real" and a x :: real and m :: nat
-  shows "(taylor_poly m f a) k-times_differentiable_at  x"
+lemma real_poly_taylor_term:
+  "real_polynomial_function (\<lambda>t::real. c * (t - a) ^ i)"
+  using real_poly_diff_pow real_polynomial_function.intros
+  by blast
+
+lemma real_poly_taylor_poly:
+  "real_polynomial_function (taylor_poly m f a)"
   unfolding taylor_poly_def
-  using k_times_differentiable_at_pow kth_deriv_cmult by (subst kth_deriv_sum_upto, blast, simp)
+  using real_polynomial_function_sum[where I = "{..m}"
+          and f = "\<lambda>x i. (deriv ^^ i) f a / fact i * (x - a) ^ i"]
+        real_poly_taylor_term
+  by blast
 
-lemma k_times_differentiable_at_taylor_term:
-  fixes f :: "real \<Rightarrow> real"  and a x :: real  and i k :: nat
-  shows "(\<lambda>t. Nth_derivative i f a / fact i * (t - a) ^ i) k-times_differentiable_at  x"
-proof -
-  have pow_diff:
-    "k_times_differentiable_at k (\<lambda>t. (t - a) ^ i) x"
-    by (rule k_times_differentiable_at_pow)
-  then show ?thesis 
-    by(subst kth_deriv_cmult, simp_all)
-qed
+lemma taylor_poly_diff_at:
+  "k_times_Fr_differentiable_at k (taylor_poly m f a) x"
+  using real_poly_taylor_poly real_poly_imp_kfr
+  by auto
 
-lemma Nth_derivative_taylor_poly:
-  fixes f :: "real \<Rightarrow> real"  and a x :: real  and k m :: nat
+lemma k_diff_at_tay_term:
+  fixes f :: "real \<Rightarrow> real"
+  shows "k_times_Fr_differentiable_at k (\<lambda>t. (deriv ^^ i) f a / fact i * (t - a) ^ i) x"
+  using real_poly_taylor_term real_poly_imp_kfr
+  by presburger
+
+lemma kth_deriv_taylor_poly:
   assumes "k \<le> m"
-  shows
-    "Nth_derivative k (taylor_poly m f a) x =
-       (\<Sum> i\<in>{k..m}. (Nth_derivative i f a / fact (i - k)) *
-                    (x - a) ^ (i - k))"
+  shows "(deriv ^^ k) (taylor_poly m f a) x =
+       (\<Sum> i\<in>{k..m}. ((deriv ^^ i) f a / fact (i - k)) * (x - a) ^ (i - k))"
 proof -
-  have "Nth_derivative k (taylor_poly m f a) x =
-          (\<Sum> i\<le>m. Nth_derivative k
-                     (\<lambda>t. Nth_derivative i f a / fact i * (t - a) ^ i) x)"
+  have "(deriv ^^ k) (taylor_poly m f a) x =
+          (\<Sum> i\<le>m. (deriv ^^ k)
+                     (\<lambda>t. (deriv ^^ i) f a / fact i * (t - a) ^ i) x)"
     unfolding taylor_poly_def
-    by (subst kth_deriv_sum_upto, subst k_times_differentiable_at_taylor_term, auto)
+    using kth_deriv_sum_upto_kfr[where F = "\<lambda>i t. (deriv ^^ i) f a / fact i * (t - a) ^ i"
+            and n = m and k = k and x = x] k_diff_at_tay_term
+    by blast
   also have
     "... = (\<Sum> i\<le>m.
               (if k \<le> i
-               then (Nth_derivative i f a / fact i) *
+               then ((deriv ^^ i) f a / fact i) *
                      (of_nat (fact i) / of_nat (fact (i - k))) *
                      (x - a) ^ (i - k)
                else 0))"
-    by (subst Nth_derivative_taylor_term, simp)
+    by (subst kth_deriv_taylor_term, simp)
   also have
     "... = (\<Sum> i\<le>m.
-              (Nth_derivative i f a / fact i) *
+              ((deriv ^^ i) f a / fact i) *
               (if k \<le> i
                then of_nat (fact i) / of_nat (fact (i - k)) *
                     (x - a) ^ (i - k)
                else 0))"
-    by (smt (verit, best) mult_eq_0_iff sum.cong vector_space_over_itself.scale_scale)
+  proof -
+    have "\<And>i. (if k \<le> i
+                then (deriv ^^ i) f a / fact i *
+                     (of_nat (fact i) / of_nat (fact (i - k))) * (x - a) ^ (i - k)
+                else 0)
+            = (deriv ^^ i) f a / fact i *
+                (if k \<le> i then of_nat (fact i) / of_nat (fact (i - k)) * (x - a) ^ (i - k) else 0)"
+      using mult.assoc mult_zero_right
+      by simp
+    then show ?thesis
+      using sum.cong
+      by presburger
+  qed
   also have
-    "... = (\<Sum> i\<in>{k..m}.(Nth_derivative i f a / fact (i - k)) * (x - a) ^ (i - k))"
+    "... = (\<Sum> i\<in>{k..m}.((deriv ^^ i) f a / fact (i - k)) * (x - a) ^ (i - k))"
     by (subst sum.mono_neutral_right[where S = "{k..m}"], auto)
   finally show ?thesis.
 qed
 
-lemma Nth_derivative_peano_remainder_zero:
-  fixes f :: "real \<Rightarrow> real" and a :: real  and k m :: nat
-  assumes km: "k \<le> m"
-      and m_diff: "f m-times_differentiable_at a"
-  shows "Nth_derivative k (peano_remainder m f a) a = 0"
+lemma kth_deriv_peano_remainder_zero:
+  assumes "k \<le> m"
+      and "k_times_Fr_differentiable_at m f a"
+  shows "(deriv ^^ k) (peano_remainder m f a) a = 0"
   unfolding peano_remainder_def
 proof -
-  have "Nth_derivative k (\<lambda>x. f x - taylor_poly m f a x) a = 
-        Nth_derivative k f a - Nth_derivative k (taylor_poly m f a) a"
-    using km m_diff k_times_differentiable_at_mono 
-    by(subst kth_deriv_sub, simp_all, simp add: taylor_poly_diff_at)
-  also have "... = Nth_derivative k f a - 
-  (\<Sum> i\<in>{k..m}. (Nth_derivative i f a / fact (i - k)) * (a - a) ^ (i - k))"
-    by (simp add: Nth_derivative_taylor_poly assms(1))
+  have "(deriv ^^ k) (\<lambda>x. f x - taylor_poly m f a x) a =
+        (deriv ^^ k) f a - (deriv ^^ k) (taylor_poly m f a) a"
+    using assms k_times_Fr_differentiable_at_mono kth_deriv_sub_poly real_poly_taylor_poly
+    by blast
+  also have "... = (deriv ^^ k) f a - 
+  (\<Sum> i\<in>{k..m}. ((deriv ^^ i) f a / fact (i - k)) * (a - a) ^ (i - k))"
+    by (simp add: kth_deriv_taylor_poly assms(1))
   also have  
     "... =  0"
    by (simp add: sum.atLeast_Suc_atMost power_0_left assms(1) split: if_splits)
-  finally show "Nth_derivative k (\<lambda>x. f x - taylor_poly m f a x) a = 0".
+  finally show "(deriv ^^ k) (\<lambda>x. f x - taylor_poly m f a x) a = 0".
 qed
 
 lemma peano_kth_deriv_zero_diff:
-  fixes f :: "real \<Rightarrow> real"  and  a :: real  and  k m :: nat
-  assumes km:   "k \<le> m"
-      and m_diff: "f m-times_differentiable_at a"
-  shows
-    "(peano_remainder m f a) m-times_differentiable_at a \<and> 
-     (Nth_derivative k (peano_remainder m f a)) (m - k)-times_differentiable_at a"
+  assumes "k \<le> m"
+      and "k_times_Fr_differentiable_at m f a"
+  shows "k_times_Fr_differentiable_at m (peano_remainder m f a) a \<and>
+     k_times_Fr_differentiable_at (m - k) ((deriv ^^ k) (peano_remainder m f a)) a"
   unfolding peano_remainder_def
-  by (simp add: Nth_derivative_commute_and_shiftE m_diff km kth_deriv_subE taylor_poly_diff_at)
+  by (simp add: assms(1,2) k_times_Fr_sub kfr_real_funpow_deriv taylor_poly_diff_at)
+
+
+subsection \<open>One-sided limits in \<open>\<epsilon>\<close>-\<open>\<delta>\<close> form\<close>
+
+text \<open>Epsilon-delta characterisations of one-sided real limits, derived purely
+  from HOL-Analysis (\<open>tendsto_iff\<close>, \<open>eventually_at_left\<close>/\<open>eventually_at_right\<close>).\<close>
+
+lemma tendsto_at_left_x_epsilon_def:
+  fixes f :: "real \<Rightarrow> real" and L x :: real
+  shows
+    "(f \<longlongrightarrow> L) (at_left x) \<longleftrightarrow>
+     (\<forall>\<epsilon>>0. \<exists>\<delta>>0. \<forall>y. (y < x \<and> x - y < \<delta>) \<longrightarrow> \<bar>f y - L\<bar> < \<epsilon>)"
+proof -
+  have "(f \<longlongrightarrow> L) (at_left x) =
+        (\<forall>\<epsilon>>0. eventually (\<lambda>y. \<bar>f y - L\<bar> < \<epsilon>) (at_left x))"
+    by (simp add: tendsto_iff dist_real_def)
+  also have
+    "\<dots> = (\<forall>\<epsilon>>0. \<exists>b<x. \<forall>y<x. b < y \<longrightarrow> \<bar>f y - L\<bar> < \<epsilon>)"
+    by (subst eventually_at_left[where y = "x - (\<bar>x\<bar> + 1)"], simp, meson)
+  also have
+    "\<dots> = (\<forall>\<epsilon>>0. \<exists>d>0. \<forall>y. y < x \<and> x - y < d \<longrightarrow> \<bar>f y - L\<bar> < \<epsilon>)"
+    by(safe, metis diff_gt_0_iff_gt diff_strict_left_mono not_less_iff_gr_or_eq,
+             metis (no_types) add.commute diff_less_eq less_add_same_cancel1)
+  finally show ?thesis.
+qed
+
+lemma tendsto_at_right_x_epsilon_def:
+  fixes f :: "real \<Rightarrow> real" and L x :: real
+  shows
+    "(f \<longlongrightarrow> L) (at_right x) \<longleftrightarrow>
+     (\<forall>\<epsilon>>0. \<exists>\<delta>>0. \<forall>y. (x < y \<and> y - x < \<delta>) \<longrightarrow> \<bar>f y - L\<bar> < \<epsilon>)"
+proof -
+  have "(f \<longlongrightarrow> L) (at_right x) =
+        (\<forall>\<epsilon>>0. eventually (\<lambda>x. \<bar>f x - L\<bar> < \<epsilon>) (at_right x))"
+    by (simp add: tendsto_iff dist_real_def)
+  also have "... = (\<forall>\<epsilon>>0. \<exists>\<delta>>x. \<forall>y>x. y < \<delta> \<longrightarrow> \<bar>f y - L\<bar> < \<epsilon>)"
+    by(subst eventually_at_right[where y = "\<bar>x\<bar> + 1"], simp_all)
+  also have "\<dots> =
+        (\<forall>\<epsilon>>0. \<exists>\<delta>>0. \<forall>y. (x < y \<and> y - x < \<delta>) \<longrightarrow> \<bar>f y - L\<bar> < \<epsilon>)"
+    by (auto, metis diff_add_cancel diff_gt_0_iff_gt diff_less_eq,
+        metis add.commute diff_less_eq less_add_same_cancel1)
+  finally show ?thesis.
+qed
 
 
 subsection \<open>Taylor's Theorem with Peano Remainder\<close>
@@ -314,7 +390,7 @@ lemma ex_remainder_choice:
   defines "R \<equiv> peano_remainder (Suc n) f x0"
   defines "A j gj \<equiv> \<bar>(deriv ^^ j) R gj\<bar> / \<bar>(y - x0) ^ (Suc n - j)\<bar>"
   assumes "y \<noteq> x0" and y_small: "\<bar>y - x0\<bar> < \<epsilon>"
-    and k_diff: "f (Suc n)-times_differentiable_at x0"
+    and k_diff: "k_times_Fr_differentiable_at (Suc n) f x0"
     and deriv1: "\<forall>z\<in>closed_segment x0 y. (R has_derivative (\<lambda>h. deriv R z * h)) (at z)"
     and derivi: "\<forall>i < n. \<forall>z. \<bar>z - x0\<bar> < \<epsilon> 
       \<longrightarrow> ((deriv ^^ i) R has_derivative (\<lambda>h. (deriv ^^ Suc i) R z * h)) (at z)"
@@ -332,7 +408,7 @@ proof-
     have A0_eq: "A 0 y = \<bar>R y\<bar> / \<bar>(y - x0) ^ (Suc n)\<bar>"
       by (simp add: R_def A_def)
     have "R x0 = 0"
-      using Nth_derivative_peano_remainder_zero[OF _ k_diff, of 0]
+      using kth_deriv_peano_remainder_zero[OF _ k_diff, of 0]
       by (simp add: R_def )
     have "\<exists>z>x0. z < y \<and> R y = (y - x0) * deriv R z" if "x0 < y"
       using closed_segment_eq_real_ivl[of x0 y] \<open>x0 < y\<close> 
@@ -387,8 +463,8 @@ proof-
       by (cases "x0 > y")
         (auto simp: open_segment_eq_real_ivl)
     have eq0: "(deriv ^^ (Suc j)) R x0 = 0" if "Suc j < n"
-      using Nth_derivative_peano_remainder_zero[OF _ k_diff]
-      by (metis R_def Suc_lessD Nth_deriv_eq_compow_deriv linorder_not_less not_less_eq_eq that)
+      using kth_deriv_peano_remainder_zero[OF _ k_diff]
+      by (metis R_def Suc_lessD linorder_not_less not_less_eq_eq that)
     have "\<exists>z>x0. z < x \<and> (deriv ^^ Suc j) R x - (deriv ^^ Suc j) R x0 
       = (x - x0) * (deriv ^^ Suc (Suc j)) R z" if "x0 < y" and "Suc j < n"
       using x_small eq0[OF \<open>Suc j < n\<close>] Suc(2)
@@ -453,7 +529,7 @@ lemma ex_remainder_list:
   defines "R \<equiv> peano_remainder (Suc n) f x0"
   defines "A j gj \<equiv> \<bar>(deriv ^^ j) R gj\<bar> / \<bar>(y - x0) ^ (Suc n - j)\<bar>"
   assumes "y \<noteq> x0" and y_small: "\<bar>y - x0\<bar> < \<epsilon>"
-    and k_diff: "f (Suc n)-times_differentiable_at x0"
+    and k_diff: "k_times_Fr_differentiable_at (Suc n) f x0"
     and deriv1: "\<forall>z\<in>closed_segment x0 y. (R has_derivative (\<lambda>h. deriv R z * h)) (at z)"
     and derivi: "\<forall>i < n. \<forall>z. \<bar>z - x0\<bar> < \<epsilon> 
       \<longrightarrow> ((deriv ^^ i) R has_derivative (\<lambda>h. (deriv ^^ Suc i) R z * h)) (at z)"
@@ -487,32 +563,29 @@ proof-
 qed
 
 theorem Taylor_Peano_remainder:
-  fixes f :: "real \<Rightarrow> real"
-    and x0 :: real
-    and n :: nat
-  assumes diff_n : "f (Suc n)-times_differentiable_at x0"
-  shows   "((\<lambda>x. peano_remainder (Suc n) f x0 x / (x - x0) ^ (Suc n)) \<longlongrightarrow> 0) (at x0)"
+  assumes "k_times_Fr_differentiable_at (Suc n) f x0"
+  shows   "((\<lambda>x. peano_remainder (n+1) f x0 x / (x-x0) ^ (n+1)) \<longlongrightarrow> 0) (at x0)"
 proof(cases "n=0")
   assume "n = 0"
-  show "(\<lambda>x. peano_remainder (Suc n) f x0 x / (x - x0) ^ Suc n) \<midarrow>x0\<rightarrow> 0"
+  show "(\<lambda>x. peano_remainder (n+1) f x0 x / (x - x0) ^ (n+1)) \<midarrow>x0\<rightarrow> 0"
   proof - 
-    have "k_times_differentiable_at 1 (peano_remainder 1 f x0) x0"
-      by(subst peano_kth_deriv_zero_diff[where k = 1], simp, (smt One_nat_def \<open>n = 0\<close> diff_n)+)        
+    have "k_times_Fr_differentiable_at 1 (peano_remainder 1 f x0) x0"
+      by (metis One_nat_def \<open>n = 0\<close> assms peano_kth_deriv_zero_diff zero_less_one_class.zero_le_one)
     then obtain Peano_f' where
       r_has_deriv :
         "(peano_remainder 1 f x0 has_real_derivative Peano_f') (at x0)"
-      using one_time_differentiable_at_iff by blast 
+      using one_times_Fr_iff real_differentiable_def by blast
     then have Peanof'_zero : "Peano_f' = 0"
-      by (metis Nth_derivative_peano_remainder_zero DERIV_imp_deriv One_nat_def \<open>n = 0\<close> 
-          diff_n first_derivative_alt_def le_numeral_extra(4))
+      using r_has_deriv DERIV_imp_deriv kth_deriv_peano_remainder_zero[of 1 1 f x0] assms \<open>n = 0\<close>
+      by (metis One_nat_def first_derivative_alt_def le_numeral_extra(4))
     have limit_Peano_Remainder :
       "((\<lambda>x. (peano_remainder 1 f x0 x - peano_remainder 1 f x0 x0)
                  / (x - x0)) \<longlongrightarrow> Peano_f') (at x0)"
       using r_has_deriv by (simp add: has_field_derivativeD) 
     then have "peano_remainder 1 f x0 x0 = 0"
-      by (metis Nth_derivative.simps(1) Nth_derivative_peano_remainder_zero 
-          One_nat_def Suc_leD \<open>n = 0\<close> diff_n le_numeral_extra(4))
-    then show "(\<lambda>x. peano_remainder (Suc n) f x0 x / (x - x0) ^ Suc n) \<midarrow>x0\<rightarrow> 0"
+      using kth_deriv_peano_remainder_zero[of 0 1 f x0] assms \<open>n = 0\<close>
+      by simp
+    then show "(\<lambda>x. peano_remainder (n+1) f x0 x / (x - x0) ^ (n+1)) \<midarrow>x0\<rightarrow> 0"
       using Peanof'_zero \<open>n = 0\<close> limit_Peano_Remainder by force
   qed
 next
@@ -532,26 +605,33 @@ next
       \<and> (\<forall>j<n. ?if_prop1 x0 y j cs) 
       \<and> (\<forall>j<n. ?quotient1 j y cs \<le> ?quotient2 j y cs))"
   proof -
-    obtain \<epsilon> where \<epsilon>_pos: "\<epsilon> > 0"
-      and diff_ball:
+    have kSucn: "k_times_Fr_differentiable_at (Suc n) (\<lambda>x. peano_remainder (Suc n) f x0 x) x0"
+      using peano_kth_deriv_zero_diff[of 0 "Suc n" f x0] assms
+      by blast
+    obtain A where A: "open A" "x0 \<in> A"
+      and Aball: "\<And>y. y \<in> A \<Longrightarrow>
+        k_times_Fr_differentiable_at n (\<lambda>x. peano_remainder (Suc n) f x0 x) y"
+      using kSucn k_times_Fr_differentiable_at.simps(2)
+      by auto
+    obtain \<epsilon> where \<epsilon>_pos: "\<epsilon> > 0" and ball_sub: "ball x0 \<epsilon> \<subseteq> A"
+      using openE[OF A(1) A(2)]
+      by blast
+    have diff_ball:
         "\<And>z. \<bar>z - x0\<bar> < \<epsilon> \<Longrightarrow>
-             k_times_differentiable_at n (\<lambda>x. peano_remainder (Suc n) f x0 x) z"
-      by (metis diff_n dual_order.refl 
-          k_times_differentiable_at.simps(2) peano_kth_deriv_zero_diff)
+             k_times_Fr_differentiable_at n (\<lambda>x. peano_remainder (Suc n) f x0 x) z"
+      using Aball ball_sub
+      by (metis dist_commute dist_real_def mem_ball subset_iff)
 
-    have field_deriv_ball:
-      "\<forall>z. \<bar>z - x0\<bar> < \<epsilon> \<longrightarrow>
-         ((\<lambda>x. peano_remainder (Suc n) f x0 x) 
-          has_derivative (\<lambda>h. deriv (\<lambda>x. peano_remainder (Suc n) f x0 x) z * h)) (at z)"  
-      using diff_ball unfolding k_times_differentiable_at.simps
-      by (metis DERIV_imp_deriv has_field_derivative_imp_has_derivative 
-          one_time_differentiable_at_iff k_times_differentiable_at_mono 
-          less_one linorder_not_less n_nonzero)
-    then have field_deriv_ball_generalized:     
+    have field_deriv_ball: "\<forall>z. \<bar>z - x0\<bar> < \<epsilon> \<longrightarrow>
+         ((\<lambda>x. peano_remainder (Suc n) f x0 x)
+          has_derivative (\<lambda>h. deriv (\<lambda>x. peano_remainder (Suc n) f x0 x) z * h)) (at z)"
+      using diff_ball kfr_real_kth_deriv_has_derivative[where k = 0] n_nonzero
+      by auto
+    then have field_deriv_ball_generalized:
       "\<forall>i < n. \<forall>z. \<bar>z - x0\<bar> < \<epsilon> \<longrightarrow>
-    ((deriv ^^ i) (\<lambda>x. peano_remainder (Suc n) f x0 x) 
+    ((deriv ^^ i) (\<lambda>x. peano_remainder (Suc n) f x0 x)
       has_derivative (\<lambda>h. (deriv ^^ Suc i) (\<lambda>x. peano_remainder (Suc n) f x0 x) z * h)) (at z)"
-      using diff_ball k_times_differentiable_ball_has_derivative_chain by blast
+      using diff_ball kfr_real_kth_deriv_has_derivative by blast
 
     show ?thesis
     proof (intro exI[of _ \<epsilon>] conjI \<epsilon>_pos, clarify)
@@ -561,70 +641,61 @@ next
  
       have dir: "x0 < x \<or> x < x0" using x_ne by arith
       have vanishes: "peano_remainder (Suc n) f x0 x0 = 0"
-        by (metis Nth_derivative.simps(1) add_0_left
-            Nth_derivative_peano_remainder_zero diff_n le_add1)
+        by (metis assms kth_deriv_peano_remainder_zero kth_deriv_simps(1) less_eq_nat.simps(1))
       show "\<exists>cs. length cs = n 
         \<and> (\<forall>j<n. ?if_prop1 x0 x j cs)
         \<and> (\<forall>j<n. ?quotient1 j x cs \<le> ?quotient2 j x cs)"
         using x_small field_deriv_ball[rule_format] field_deriv_ball_generalized
-        by (subst ex_remainder_list[OF x_ne x_small diff_n],        
+        by (subst ex_remainder_list[OF x_ne x_small assms],        
             auto simp: closed_segment_eq_real_ivl)
     qed
   qed
-
-
   then obtain \<delta> :: real where \<delta>_pos: "\<delta> > 0" and \<delta>_prop: "\<forall>y. y \<noteq> x0 \<longrightarrow> \<bar>y - x0\<bar> < \<delta> 
     \<longrightarrow> (\<exists>cs. length cs = n 
         \<and> (\<forall>j<n. ?if_prop1 x0 y j cs)
         \<and> (\<forall>j<n. ?quotient1 j y cs \<le> ?quotient2 j y cs))"
     by blast
   let "?remainder1 m y" = "(deriv ^^ m) (peano_remainder (Suc n) f x0) y"
-  and "?remainder2 m y" = "Nth_derivative m (peano_remainder (Suc n) f x0) y"
+  and "?remainder2 m y" = "(deriv ^^ m) (peano_remainder (Suc n) f x0) y"
   have final_term_limit: "(\<lambda>x. (?remainder1 n x - ?remainder1 n x0) / (x - x0)) \<midarrow>x0\<rightarrow> 0"
   proof -
-    have "k_times_differentiable_at (Suc n) (peano_remainder (Suc n) f x0) x0"
-      by (meson diff_n le_add2 le_add_same_cancel2 peano_kth_deriv_zero_diff)
+    have "k_times_Fr_differentiable_at (Suc n) (peano_remainder (Suc n) f x0) x0"
+      by (meson assms lessI less_le_not_le peano_kth_deriv_zero_diff)
     then have "(\<lambda>r. (?remainder2 n r - ?remainder2 n x0) / (r - x0)) \<midarrow>x0 \<rightarrow> ?remainder2 (Suc n) x0"
-      using has_field_derivativeD k_times_differentiable_at_SucE by blast
+      by (metis (lifting) ext DERIV_deriv_iff_real_differentiable has_field_derivative_iff kfr_real_lower_deriv_diff kth_deriv_Suc lessI)
     then have "(\<lambda>r. (?remainder2 n r - ?remainder1 n x0) / (r - x0)) \<midarrow>x0 \<rightarrow> ?remainder1 (Suc n) x0"
-      by (metis (no_types) Nth_deriv_eq_compow_deriv)
+      by simp
     then show ?thesis
-      by (metis (no_types, lifting) LIM_cong Nth_derivative_peano_remainder_zero 
-          diff_n dual_order.refl Nth_deriv_eq_compow_deriv)          
+      by (metis (no_types, lifting) kth_deriv_peano_remainder_zero assms dual_order.refl)
   qed  
-
-
-  show "(\<lambda>x. peano_remainder (Suc n) f x0 x / (x - x0) ^ Suc n) \<midarrow>x0\<rightarrow> 0" 
+  show "(\<lambda>x. peano_remainder (n+1) f x0 x / (x - x0) ^ (n+1)) \<midarrow>x0\<rightarrow> 0" 
   proof(rule filterlim_split_at_real)
-    show "((\<lambda>x. peano_remainder (Suc n) f x0 x / (x - x0) ^ Suc n) \<longlongrightarrow> 0) (at_left x0)"     
+    show "((\<lambda>x. peano_remainder (n+1) f x0 x / (x - x0) ^ (n+1)) \<longlongrightarrow> 0) (at_left x0)"     
     proof(subst tendsto_at_left_x_epsilon_def, clarify)
       fix \<epsilon> :: real
       assume \<epsilon>_pos: "0 < \<epsilon>"
       show "\<exists>\<delta>>0. \<forall>y. y < x0 \<and> x0 - y < \<delta> 
-      \<longrightarrow> \<bar>peano_remainder (Suc n) f x0 y / (y - x0) ^ Suc n - 0\<bar> < \<epsilon>"
+      \<longrightarrow> \<bar>peano_remainder (n+1) f x0 y / (y - x0) ^ (n+1) - 0\<bar> < \<epsilon>"
       proof -       
         have "(\<lambda>x. \<bar>((deriv ^^ n) (peano_remainder (Suc n) f x0) x - 
             (deriv ^^ n) (peano_remainder (Suc n) f x0) x0) / (x - x0)\<bar>) \<midarrow>x0\<rightarrow> 0"
           by(rule tendsto_rabs_zero, smt final_term_limit)
         then have "((\<lambda>x. \<bar>(deriv ^^ n) (peano_remainder (Suc n) f x0) x - 
             (deriv ^^ n) (peano_remainder (Suc n) f x0) x0\<bar> / \<bar>x - x0\<bar>) \<longlongrightarrow> 0) (at_left x0)"
-          by (meson LIM_cong Lim_at_imp_Lim_at_within abs_divide)
-     
+          by (meson LIM_cong Lim_at_imp_Lim_at_within abs_divide)     
         with  \<epsilon>_pos
         obtain \<delta>1 where \<delta>1_pos: "\<delta>1 > 0"
                    and \<delta>1_prop: "\<forall>y. y < x0 \<and> x0 - y < \<delta>1 \<longrightarrow>
                         \<bar>(deriv ^^ n) (peano_remainder (Suc n) f x0) y
                         - (deriv ^^ n) (peano_remainder (Suc n) f x0) x0\<bar>
                        /\<bar>y - x0\<bar> < \<epsilon>"
-          using tendsto_at_left_x_epsilon_def
-          by auto
+          using tendsto_at_left_x_epsilon_def by auto
 
         define \<delta>2 where "\<delta>2 = min \<delta> \<delta>1"
         have \<delta>2_pos: "\<delta>2 > 0" 
           by (simp add: \<delta>1_pos \<delta>2_def \<delta>_pos)
       
-        have *: "\<forall>y. y < x0 \<and> x0 - y < \<delta>2 \<longrightarrow>
-                   \<bar>peano_remainder (Suc n) f x0 y / (y - x0) ^ Suc n\<bar> < \<epsilon>"
+        have "\<forall>y. y < x0 \<and> x0 - y < \<delta>2 \<longrightarrow>\<bar>peano_remainder (Suc n) f x0 y / (y - x0) ^ Suc n\<bar> < \<epsilon>"
         proof clarify
           fix y :: real
           assume y_cond: "y < x0" "x0 - y < \<delta>2"        
@@ -709,23 +780,23 @@ next
             also have "... \<le> \<bar>?remainder1 n (cs ! (n-1))\<bar>   / \<bar>(cs ! (n-1)) - x0\<bar>"
               by (smt (verit, best) final_element_bound cs_tail_bound frac_le)
             also have "... = \<bar>?remainder1 n (cs ! (n-1)) - ?remainder1 n x0\<bar> / \<bar>(cs!(n-1)) - x0\<bar>"
-              using Nth_derivative_peano_remainder_zero diff_n Nth_deriv_eq_compow_deriv by auto
+              using kth_deriv_peano_remainder_zero assms by auto
             also have "... < \<epsilon>"
               using \<delta>1_prop \<delta>2_def cs_tail_bound final_element_bound y_cond by auto
             finally show ?thesis.
           qed
         qed
         then show ?thesis
-          by (metis \<delta>2_pos diff_zero)
+          using \<delta>2_pos by auto 
       qed
     qed
   next
-    show "((\<lambda>x. peano_remainder (Suc n) f x0 x / (x - x0) ^ Suc n) \<longlongrightarrow> 0) (at_right x0)"
+    show "((\<lambda>x. peano_remainder (n+1) f x0 x / (x - x0) ^ (n+1)) \<longlongrightarrow> 0) (at_right x0)"
     proof(subst tendsto_at_right_x_epsilon_def, clarify)
       fix \<epsilon> :: real
       assume \<epsilon>_pos: "0 < \<epsilon>"
       show "\<exists>\<delta>>0. \<forall>y. x0 < y \<and> y - x0 < \<delta> 
-      \<longrightarrow> \<bar>peano_remainder (Suc n) f x0 y / (y - x0) ^ Suc n - 0\<bar> < \<epsilon>"
+      \<longrightarrow> \<bar>peano_remainder (n+1) f x0 y / (y - x0) ^ (n+1) - 0\<bar> < \<epsilon>"
       proof -       
         have "(\<lambda>x. \<bar>((deriv ^^ n) (peano_remainder (Suc n) f x0) x - 
             (deriv ^^ n) (peano_remainder (Suc n) f x0) x0) / (x - x0)\<bar>) \<midarrow>x0\<rightarrow> 0"
@@ -744,18 +815,16 @@ next
           \<longrightarrow> \<bar>\<bar>?remainder1 n x0 - ?remainder1 n y\<bar> / \<bar>y - x0\<bar> - 0\<bar> < \<epsilon>)"
           by simp
         
-        with  \<epsilon>_pos
-        obtain \<delta>1 where \<delta>1_pos: "\<delta>1 > 0"
-          and \<delta>1_prop: "\<forall>y. x0 < y \<and> y - x0 < \<delta>1 
-            \<longrightarrow> \<bar>?remainder1 n x0 - ?remainder1 n y\<bar> /\<bar>y - x0\<bar> < \<epsilon>"
+        with \<epsilon>_pos
+        obtain \<delta>1 where \<delta>1_pos: "\<delta>1 > 0" and
+          \<delta>1_prop: "\<forall>y. x0 < y \<and> y - x0 < \<delta>1 \<longrightarrow> \<bar>?remainder1 n x0 - ?remainder1 n y\<bar> /\<bar>y - x0\<bar> < \<epsilon>"
           by force
          
         define \<delta>2 where "\<delta>2 = min \<delta> \<delta>1"
         have \<delta>2_pos: "\<delta>2 > 0" 
           by (simp add: \<delta>1_pos \<delta>2_def \<delta>_pos)
       
-        have "\<forall>y. x0 < y \<and> y - x0 < \<delta>2 
-          \<longrightarrow> \<bar>peano_remainder (Suc n) f x0 y / (y - x0) ^ Suc n\<bar> < \<epsilon>"
+        have "\<forall>y. x0 < y \<and> y - x0 < \<delta>2 \<longrightarrow> \<bar>peano_remainder (Suc n) f x0 y / (y - x0) ^ Suc n\<bar> < \<epsilon>"
         proof clarify
           fix y :: real
           assume y_cond: " x0 < y" " y - x0 < \<delta>2"       
@@ -839,52 +908,51 @@ next
             also have "... \<le> \<bar>?remainder1 n (cs ! (n-1))\<bar>   / \<bar>(cs ! (n-1)) - x0\<bar>"
               by (smt (verit, best) final_element_bound cs_tail_bound frac_le)
             also have "... = \<bar>?remainder1 n (cs ! (n-1)) - ?remainder1 n x0\<bar> / \<bar>(cs ! (n-1)) - x0\<bar>"
-              using Nth_derivative_peano_remainder_zero diff_n Nth_deriv_eq_compow_deriv by auto
+              using kth_deriv_peano_remainder_zero assms by auto
             also have "... <  \<epsilon>"
               by (smt (verit, del_insts) \<delta>1_prop \<delta>2_def cs_tail_bound final_element_bound y_cond)
             finally show ?thesis.
           qed
         qed
         then show ?thesis
-          by (metis \<delta>2_pos diff_zero)
+          using \<delta>2_pos by auto
       qed
     qed  
   qed
 qed
 
 corollary Taylor_Peano:
-  fixes f :: "real \<Rightarrow> real" and a :: real and n :: nat
-  assumes diff: "f (Suc n)-times_differentiable_at a"
+  assumes "k_times_Fr_differentiable_at (Suc n) f a"
   obtains h :: "real \<Rightarrow> real"
-  where "((\<lambda>x. h x) \<longlongrightarrow> 0) (at a)"
-    and  "\<forall>x. x \<noteq> a \<longrightarrow>
-            f x = (\<Sum>i\<le>Suc n. Nth_derivative i f a / fact i * (x - a) ^ i)
-                  + h x * (x - a) ^ Suc n"
+  where  "((\<lambda>x. h x) \<longlongrightarrow> 0) (at a)"
+     and "f x = (\<Sum>i\<le>(n+1). (deriv ^^ i) f a/fact i * (x-a) ^ i) + h x * (x-a)^(n+1)"
 proof
-  define h where
-    "h x = (if x = a then 0 else peano_remainder (Suc n) f a x / (x - a) ^ Suc n)" for x
+  define h where h_def: 
+    "h x = (if x=a then 0 else peano_remainder (n+1) f a x / (x - a) ^ (n+1))" for x
 
-  have lim0:
-    "((\<lambda>x. peano_remainder (Suc n) f a x / (x - a) ^ Suc n) \<longlongrightarrow> 0) (at a)"
-    using Taylor_Peano_remainder[OF diff].
+  have lim0: "((\<lambda>x. peano_remainder (n+1) f a x / (x - a) ^ (n+1)) \<longlongrightarrow> 0) (at a)"
+    using Taylor_Peano_remainder[OF assms].
 
   have ev_ne: "eventually (\<lambda>x. x \<noteq> a) (at a)"
     by (simp add: eventually_at_filter)
 
-  have "((\<lambda>x. h x) \<longlongrightarrow> 0) (at a)"
-    by (metis (no_types, lifting) LIM_cong h_def lim0)
-  
-  moreover
-  have exp:
-    "\<And>x. x \<noteq> a \<Longrightarrow>
-      f x = (\<Sum>i\<le>Suc n. Nth_derivative i f a / fact i * (x - a) ^ i)
-            + h x * (x - a) ^ Suc n"
-    using h_def peano_remainder_def taylor_poly_def by force 
-  ultimately show "((\<lambda>x. h x) \<longlongrightarrow> 0) (at a)"
-    and       "\<forall>x. x \<noteq> a \<longrightarrow>
-                f x = (\<Sum>i\<le>Suc n. Nth_derivative i f a / fact i * (x - a) ^ i)
-                      + h x * (x - a) ^ Suc n"
-    by auto
+  have eq_ev: "eventually (\<lambda>x. h x = peano_remainder (Suc n) f a x / (x - a) ^ Suc n) (at a)"
+    by (simp add: h_def)
+    show tend0: "((\<lambda>x. h x) \<longlongrightarrow> 0) (at a)"
+      using eq_ev filterlim_cong lim0 by fastforce
+
+
+      have exp_ne:"\<And>x. x \<noteq> a \<Longrightarrow>
+      f x = (\<Sum>i\<le>Suc n. (deriv ^^ i) f a / fact i * (x - a) ^ i) + h x * (x - a) ^ Suc n"
+    using h_def peano_remainder_def taylor_poly_def by force
+
+  have exp_a: "f a = (\<Sum>i\<le>Suc n. (deriv ^^ i) f a / fact i * (a - a) ^ i) + h a * (a-a) ^ Suc n"
+    by (simp add: h_def)
+
+  show "f x = (\<Sum>i\<le>n + 1. (deriv ^^ i) f a / fact i * (x - a) ^ i) +
+    (if x = a then 0 else peano_remainder (n + 1) f a x / (x - a) ^ (n + 1)) * (x - a) ^ (n + 1)"
+    using Suc_eq_plus1 h_def exp_a exp_ne
+    by presburger
 qed
-  
+
 end
