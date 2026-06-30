@@ -89,7 +89,7 @@ program bisection "(f :: real \<Rightarrow> real, a :: real, b :: real, tol :: r
  = "iter := 0; fl := f(a); fu := f(b); l := a; u := b; xmid := l;
     while u - l > tol
     invariant fl = f(l) \<and> fu = f(u) \<and> (l = xmid \<or> u = xmid) \<and> a \<le> l \<and> u \<le> b \<and> l < u
-      \<and> fl * fu \<le> 0 \<and> u - l = (b - a) / 2^iter \<and> (iter = 0 \<or> 2 * (u - l) > tol)
+      \<and> fl * fu \<le> 0 \<and> u - l = (b - a) / 2^iter \<and> (2 * (u - l) > tol)
     variant nat(\<lceil>log 2 ((b - a) / tol)\<rceil>) - iter
     do iter := iter + 1; xmid := (l + u)/2; ymid := f(xmid);
        if fl*ymid > 0 then l := xmid; fl := ymid else u := xmid; fu := ymid fi od"
@@ -186,36 +186,23 @@ proof -
   show ?thesis
   proof (vcg)
     show "\<And>xmid u. \<lbrakk> 0 < f xmid * f ((xmid + u) / 2); f xmid * f u \<le> 0 \<rbrakk>  \<Longrightarrow> f ((xmid + u) / 2) * f u \<le> 0"
-      by (metis less_eq_real_def linorder_not_less zero_less_mult_iff)
+      by (metis less_eq_real_def less_numeral_extra(3) mult_le_0_iff verit_la_disequality
+          zero_less_mult_iff)
     show "\<And>xmid u iter.  u - xmid = (b - a) / 2 ^ iter  \<Longrightarrow> u - (xmid + u) / 2 = (b - a) / (2 * 2 ^ iter)"
-      by (simp add: add_divide_distrib)
-    show "\<And>xmid u. u - xmid = b - a \<Longrightarrow> u * 2 - (xmid * 2 + u * 2) / 2 = b - a"
-      by (smt (z3) field_sum_of_halves)
-    show "\<And>xmid u. u - xmid = b - a \<Longrightarrow> tol < 2 * u - (2 * xmid + 2 * u) / 2"
-      by (smt (z3) field_sum_of_halves sufficiently_small_tol)
+      by (simp add: add_divide_distrib)    
     show "f a * f b \<le> 0"
       using opposite_signs by auto
     show "a < b"
-      by (simp add: a_less_than_b)
-    show "\<And>xmid u. u - xmid = b - a  \<Longrightarrow> u * 2 - (xmid * 2 + u * 2) / 2 = b - a"
-      by (smt (z3)  field_sum_of_halves)
-    show "\<And>xmid u. u - xmid = b - a \<Longrightarrow> tol < 2 * u - (2 * xmid + 2 * u) / 2"
-      by (smt (z3) sufficiently_small_tol field_sum_of_halves)
+      by (simp add: a_less_than_b)   
     show "\<And>xmid u iter. \<lbrakk> u - xmid = (b - a) / 2 ^ iter; tol < (b - a) / 2 ^ iter \<rbrakk> \<Longrightarrow> tol < 2 * u - (2 * xmid + 2 * u) / 2"
       by (smt (z3) field_sum_of_halves)
     show "\<And>l u.\<lbrakk> 0 < f l * f ((l + u) / 2); f l * f u \<le> 0 \<rbrakk> \<Longrightarrow> f ((l + u) / 2) * f u \<le> 0"
-      by (metis less_eq_real_def linorder_not_less zero_less_mult_iff)
-    show "\<And>iter l u. \<lbrakk> 0 < f l * f ((l + u) / 2); f l * f u \<le> 0 \<rbrakk> \<Longrightarrow> f ((l + u) / 2) * f u \<le> 0"
-      by (metis less_eq_real_def linorder_not_less zero_less_mult_iff)
+      by (metis less_eq_real_def less_numeral_extra(3) mult_le_0_iff verit_la_disequality
+          zero_less_mult_iff)
     show "\<And>iter l u. \<lbrakk> u - l = (b - a) / 2 ^ iter; tol < (b - a) / 2 ^ iter \<rbrakk> \<Longrightarrow> tol < 2 * u - (2 * l + 2 * u) / 2"
-      by (smt (z3) field_sum_of_halves)
-    show "\<And>iter l u. \<lbrakk> 0 < f l * f ((l + u) / 2); f l * f u \<le> 0 \<rbrakk> \<Longrightarrow> f ((l + u) / 2) * f u \<le> 0"
-      by (metis less_eq_real_def linorder_not_less zero_less_mult_iff)
+      by (smt (z3) field_sum_of_halves)    
     show "\<And>iter l u. u - l = (b - a) / 2 ^ iter  \<Longrightarrow> u - (l + u) / 2 = (b - a) / (2 * 2 ^ iter)"
-      by (simp add: field_simps)
-    show "\<And> xmid. \<not> tol < b - a \<Longrightarrow> \<exists>c. f c = 0 \<and> a < c \<and> c < b \<and> \<bar>c - xmid\<bar> \<le> b - a \<and> \<bar>c - xmid\<bar> \<le> tol \<and> \<lceil>log 2 ((b - a) / tol)\<rceil> = 0"
-      using assms(2) by blast
-    thus "\<And> xmid. \<not> tol < b - a \<Longrightarrow> \<exists>c. f c = 0 \<and> a < c \<and> c < b \<and> \<bar>c - xmid\<bar> \<le> b - a \<and> \<bar>c - xmid\<bar> \<le> tol \<and> \<lceil>log 2 ((b - a) / tol)\<rceil> = 0" .
+      by (simp add: field_simps)    
   next
     fix iter u xmid
     assume a0: "\<not> (tol < (b - a) / 2 ^ iter)" and a1: "f xmid * f u \<le> 0"
@@ -241,6 +228,8 @@ proof -
     thus "\<And>iter u xmid. tol < (b - a) / 2 ^ iter \<Longrightarrow> nat \<lceil>log 2 ((b - a) / tol)\<rceil> - Suc iter < nat \<lceil>log 2 ((b - a) / tol)\<rceil> - iter" .
     thus "\<And>iter u xmid. tol < (b - a) / 2 ^ iter \<Longrightarrow> nat \<lceil>log 2 ((b - a) / tol)\<rceil> - Suc iter < nat \<lceil>log 2 ((b - a) / tol)\<rceil> - iter" .
     thus "\<And>iter u xmid. tol < (b - a) / 2 ^ iter \<Longrightarrow> nat \<lceil>log 2 ((b - a) / tol)\<rceil> - Suc iter < nat \<lceil>log 2 ((b - a) / tol)\<rceil> - iter" .
+    show "tol < 2 * b - 2 * a"
+      using assms(1,2) by linarith
   qed
 qed
 
