@@ -62,34 +62,6 @@ proof -
 qed
 
 
-subsection \<open>Shared sign-propagation lemma (used by both paradigms)\<close>
-
-text \<open>Opposite signs propagate to the retained half: if the bracket straddles a
-  sign change (@{term \<open>A * C \<le> 0\<close>}) and the lower subinterval does not
-  (@{term \<open>0 < A * B\<close>}), then the upper subinterval does (@{term \<open>B * C \<le> 0\<close>}).
-  Used both by the VCG proof below and by the Lammich proof's else-branch.\<close>
-
-lemma sign_prop:
-  fixes A B C :: real
-  assumes "A * C \<le> 0" and "0 < A * B"
-  shows "B * C \<le> 0"
-proof -
-  from assms(2) have ab: "0 \<le> A * B" and An0: "A \<noteq> 0" by auto
-  have aa: "0 < A * A" using An0
-    by (metis linorder_neqE_linordered_idom mult_neg_neg mult_pos_pos)
-  have "(A * A) * (B * C) = (A * B) * (A * C)" by (simp add: mult_ac)
-  also have "\<dots> \<le> 0" by (rule mult_nonneg_nonpos[OF ab assms(1)])
-  finally have le0: "(A * A) * (B * C) \<le> 0" .
-  show ?thesis
-  proof (rule ccontr)
-    assume "\<not> B * C \<le> 0"
-    hence "0 < B * C" by simp
-    with aa have "0 < (A * A) * (B * C)" by (rule mult_pos_pos)
-    with le0 show False by simp
-  qed
-qed
-
-
 section \<open>Paradigm A: Imperative ITree Program, VCG-based Hoare Logic\<close>
 
 subsection \<open>Algorithm\<close>
@@ -214,7 +186,7 @@ proof -
   show ?thesis
   proof (vcg)
     show "\<And>xmid u. \<lbrakk> 0 < f xmid * f ((xmid + u) / 2); f xmid * f u \<le> 0 \<rbrakk>  \<Longrightarrow> f ((xmid + u) / 2) * f u \<le> 0"
-      by (meson sign_prop)
+      by (metis less_eq_real_def linorder_not_less zero_less_mult_iff)
     show "\<And>xmid u iter.  u - xmid = (b - a) / 2 ^ iter  \<Longrightarrow> u - (xmid + u) / 2 = (b - a) / (2 * 2 ^ iter)"
       by (simp add: add_divide_distrib)
     show "\<And>xmid u. u - xmid = b - a \<Longrightarrow> u * 2 - (xmid * 2 + u * 2) / 2 = b - a"
@@ -232,13 +204,13 @@ proof -
     show "\<And>xmid u iter. \<lbrakk> u - xmid = (b - a) / 2 ^ iter; tol < (b - a) / 2 ^ iter \<rbrakk> \<Longrightarrow> tol < 2 * u - (2 * xmid + 2 * u) / 2"
       by (smt (z3) field_sum_of_halves)
     show "\<And>l u.\<lbrakk> 0 < f l * f ((l + u) / 2); f l * f u \<le> 0 \<rbrakk> \<Longrightarrow> f ((l + u) / 2) * f u \<le> 0"
-      by (meson sign_prop)
+      by (metis less_eq_real_def linorder_not_less zero_less_mult_iff)
     show "\<And>iter l u. \<lbrakk> 0 < f l * f ((l + u) / 2); f l * f u \<le> 0 \<rbrakk> \<Longrightarrow> f ((l + u) / 2) * f u \<le> 0"
-      by (meson sign_prop)
+      by (metis less_eq_real_def linorder_not_less zero_less_mult_iff)
     show "\<And>iter l u. \<lbrakk> u - l = (b - a) / 2 ^ iter; tol < (b - a) / 2 ^ iter \<rbrakk> \<Longrightarrow> tol < 2 * u - (2 * l + 2 * u) / 2"
       by (smt (z3) field_sum_of_halves)
     show "\<And>iter l u. \<lbrakk> 0 < f l * f ((l + u) / 2); f l * f u \<le> 0 \<rbrakk> \<Longrightarrow> f ((l + u) / 2) * f u \<le> 0"
-      by (meson sign_prop)
+      by (metis less_eq_real_def linorder_not_less zero_less_mult_iff)
     show "\<And>iter l u. u - l = (b - a) / 2 ^ iter  \<Longrightarrow> u - (l + u) / 2 = (b - a) / (2 * 2 ^ iter)"
       by (simp add: field_simps)
     show "\<And> xmid. \<not> tol < b - a \<Longrightarrow> \<exists>c. f c = 0 \<and> a < c \<and> c < b \<and> \<bar>c - xmid\<bar> \<le> b - a \<and> \<bar>c - xmid\<bar> \<le> tol \<and> \<lceil>log 2 ((b - a) / tol)\<rceil> = 0"
@@ -365,7 +337,8 @@ theorem bisection_correct:
     from inv have inv': "a \<le> aa" "aa \<le> ba" "ba \<le> b" "f aa * f ba \<le> 0"
       by (auto simp: bisect_invar_def)
     have pbr: "0 < f aa * f ((aa + ba) / 2)" using br by simp
-    have "f ((aa + ba) / 2) * f ba \<le> 0" by (rule sign_prop[OF inv'(4) pbr])
+    have "f ((aa + ba) / 2) * f ba \<le> 0" 
+      by (metis inv'(4) landau_o.R_linear p(4) zero_compare_simps(8))
     thus ?thesis using inv' by (auto simp: bisect_invar_def)
   qed
   subgoal premises p for s aa ba \<comment> \<open>else-branch: variant decreases\<close>
